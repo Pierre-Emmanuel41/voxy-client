@@ -2,7 +2,11 @@ package fr.pederobien.voxy.client.impl;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.function.Consumer;
 
+import fr.pederobien.utils.event.EventManager;
+import fr.pederobien.voxy.client.event.VoxyRoomRenameRequestEvent;
+import fr.pederobien.voxy.client.event.VoxyRoomRenamedEvent;
 import fr.pederobien.voxy.client.interfaces.IVoxyClient;
 import fr.pederobien.voxy.client.interfaces.IVoxyPlayer;
 import fr.pederobien.voxy.client.interfaces.IVoxyRoom;
@@ -39,15 +43,28 @@ public class VoxyRoom implements IVoxyRoom {
 	}
 
 	@Override
-	public void setName(String name) {
-		if (this.name == name)
+	public void setName(String name, Consumer<Boolean> callback) {
+		if (this.name.equals(name))
 			return;
 
-		// TODO: Send a request to the server to rename a room
+		EventManager.callEvent(new VoxyRoomRenameRequestEvent(this, name, callback));
 	}
 
 	@Override
 	public Map<String, IVoxyPlayer> getPlayers() {
 		return Collections.unmodifiableMap(players);
+	}
+
+	/**
+	 * Called internally to update the room's name.
+	 * 
+	 * @param name The new room's name.
+	 */
+	protected void setName(String name) {
+		if (this.name.equals(name))
+			return;
+
+		this.name = name;
+		EventManager.callEvent(new VoxyRoomRenamedEvent(this, name));
 	}
 }

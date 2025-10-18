@@ -18,11 +18,14 @@ import fr.pederobien.messenger.interfaces.client.IProtocolClient;
 import fr.pederobien.protocol.interfaces.IError;
 import fr.pederobien.protocol.interfaces.IIdentifier;
 import fr.pederobien.protocol.interfaces.IRequest;
+import fr.pederobien.utils.event.EventHandler;
 import fr.pederobien.utils.event.EventManager;
+import fr.pederobien.utils.event.IEventListener;
 import fr.pederobien.utils.event.Logger;
 import fr.pederobien.voxy.client.event.VoxyClientConnected;
 import fr.pederobien.voxy.client.event.VoxyRoomAddedEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomRemovedEvent;
+import fr.pederobien.voxy.client.event.VoxyRoomRenameRequestEvent;
 import fr.pederobien.voxy.client.interfaces.IVoxyClient;
 import fr.pederobien.voxy.client.interfaces.IVoxyPlayer;
 import fr.pederobien.voxy.client.interfaces.IVoxyRoom;
@@ -37,11 +40,11 @@ import fr.pederobien.voxy.common.impl.requests.ServerPropertiesRequest;
 import fr.pederobien.voxy.common.impl.requests.ServerPropertiesRequest.PlayerInfo;
 import fr.pederobien.voxy.common.impl.requests.ServerPropertiesRequest.RoomInfo;
 
-public class VoxyClient implements IVoxyClient {
+public class VoxyClient implements IVoxyClient, IEventListener {
 	private final String playerName;
 	private final ProtocolClientConfig<IEthernetEndPoint> config;
 	private final IProtocolClient client;
-	private final Map<String, IVoxyRoom> rooms;
+	private final Map<String, VoxyRoom> rooms;
 	private final Object lock;
 
 	/**
@@ -69,8 +72,10 @@ public class VoxyClient implements IVoxyClient {
 
 		client = Messenger.createTcpClient(config);
 
-		rooms = new HashMap<String, IVoxyRoom>();
+		rooms = new HashMap<String, VoxyRoom>();
 		lock = new Object();
+
+		EventManager.registerListener(this);
 	}
 
 	@Override
@@ -100,6 +105,7 @@ public class VoxyClient implements IVoxyClient {
 
 	@Override
 	public void add(String name, Consumer<Boolean> callback) {
+		debug("Sending a request to the server to add room %s", name);
 		IRequestMessage request = getRequest(VoxyIdentifiers.ADD_ROOM, new AddRoomRequest(name, 0));
 		request.setCallback(args -> {
 			if (!args.isTimeout() && !args.isConnectionLost()) {
@@ -114,6 +120,7 @@ public class VoxyClient implements IVoxyClient {
 
 	@Override
 	public void remove(String name, Consumer<Boolean> callback) {
+		debug("Sending a request to the server to remove room %s", name);
 		IRequestMessage request = getRequest(VoxyIdentifiers.REMOVE_ROOM, new RemoveRoomRequest(name));
 		request.setCallback(args -> {
 			if (!args.isTimeout() && !args.isConnectionLost()) {
@@ -131,6 +138,24 @@ public class VoxyClient implements IVoxyClient {
 		return client.toString();
 	}
 
+	@EventHandler
+	private void onRoomRenameEvent(VoxyRoomRenameRequestEvent event) {
+		if (event.getRoom().getClient() != this)
+			return;
+
+		debug("Sending a request to the server to rename room %s as %s", event.getRoom().getName(), event.getNewName());
+		IRequestMessage request = getRequest(VoxyIdentifiers.RENAME_ROOM, new RenameRoomRequest(event.getRoom().getName(), event.getNewName()));
+		request.setCallback(args -> {
+			if (!args.isTimeout() && !args.isConnectionLost()) {
+				event.getCallback().accept(config.parse(args.response()).getError() == VoxyErrors.NO_ERROR);
+			} else
+				// No response from the server
+				event.getCallback().accept(false);
+		});
+
+		send(request);
+	}
+
 	/**
 	 * Event handler: Method called when the server notify the client that a room has been added.
 	 *
@@ -143,7 +168,7 @@ public class VoxyClient implements IVoxyClient {
 			return;
 
 		debug("Receiving request to add room %s", request.getName());
-		IVoxyRoom room = new VoxyRoom(this, request.getName(), request.getPort(), new HashMap<String, IVoxyPlayer>());
+		VoxyRoom room = new VoxyRoom(this, request.getName(), request.getPort(), new HashMap<String, IVoxyPlayer>());
 
 		synchronized (lock) {
 			rooms.put(request.getName(), room);
@@ -186,6 +211,11 @@ public class VoxyClient implements IVoxyClient {
 			return;
 
 		debug("Receiving request to rename room %s as %s", request.getOldName(), request.getNewName());
+		synchronized (lock) {
+			VoxyRoom room = rooms.remove(request.getOldName());
+			rooms.put(request.getNewName(), room);
+			room.setName(request.getNewName());
+		}
 	}
 
 	/**
