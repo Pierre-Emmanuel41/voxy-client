@@ -22,6 +22,7 @@ import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.Logger;
 import fr.pederobien.voxy.client.event.VoxyClientConnected;
 import fr.pederobien.voxy.client.event.VoxyRoomAddedEvent;
+import fr.pederobien.voxy.client.event.VoxyRoomRemovedEvent;
 import fr.pederobien.voxy.client.interfaces.IVoxyClient;
 import fr.pederobien.voxy.client.interfaces.IVoxyPlayer;
 import fr.pederobien.voxy.client.interfaces.IVoxyRoom;
@@ -41,6 +42,7 @@ public class VoxyClient implements IVoxyClient {
 	private final ProtocolClientConfig<IEthernetEndPoint> config;
 	private final IProtocolClient client;
 	private final Map<String, IVoxyRoom> rooms;
+	private final Object lock;
 
 	/**
 	 * Creates a client to communicate with a voxy server.
@@ -53,7 +55,7 @@ public class VoxyClient implements IVoxyClient {
 		this.playerName = playerName;
 
 		IEthernetEndPoint endPoint = new EthernetEndPoint(address, port);
-		config = Messenger.createClientConfig(VoxyProtocolManager.instance(), "Voxy_Client", endPoint);
+		config = Messenger.createClientConfig(VoxyProtocolManager.instance(), playerName, endPoint);
 
 		// Layer to communicate: RSA
 		// TODO: Replace SimpleCertificate by a proper one
@@ -68,6 +70,7 @@ public class VoxyClient implements IVoxyClient {
 		client = Messenger.createTcpClient(config);
 
 		rooms = new HashMap<String, IVoxyRoom>();
+		lock = new Object();
 	}
 
 	@Override
@@ -110,8 +113,17 @@ public class VoxyClient implements IVoxyClient {
 	}
 
 	@Override
-	public void remove(String name) {
-		// TODO: Sends a request to the server to remove a room
+	public void remove(String name, Consumer<Boolean> callback) {
+		IRequestMessage request = getRequest(VoxyIdentifiers.REMOVE_ROOM, new RemoveRoomRequest(name));
+		request.setCallback(args -> {
+			if (!args.isTimeout() && !args.isConnectionLost()) {
+				callback.accept(config.parse(args.response()).getError() == VoxyErrors.NO_ERROR);
+			} else
+				// No response from the server
+				callback.accept(false);
+		});
+
+		send(request);
 	}
 
 	@Override
@@ -132,7 +144,11 @@ public class VoxyClient implements IVoxyClient {
 
 		debug("Receiving request to add room %s", request.getName());
 		IVoxyRoom room = new VoxyRoom(this, request.getName(), request.getPort(), new HashMap<String, IVoxyPlayer>());
-		rooms.put(request.getName(), room);
+
+		synchronized (lock) {
+			rooms.put(request.getName(), room);
+		}
+
 		EventManager.callEvent(new VoxyRoomAddedEvent(room));
 	}
 
@@ -148,6 +164,14 @@ public class VoxyClient implements IVoxyClient {
 			return;
 
 		debug("Receiving request to remove room %s", request.getName());
+
+		IVoxyRoom room;
+
+		synchronized (lock) {
+			room = rooms.remove(request.getName());
+		}
+
+		EventManager.callEvent(new VoxyRoomRemovedEvent(room));
 	}
 
 	/**

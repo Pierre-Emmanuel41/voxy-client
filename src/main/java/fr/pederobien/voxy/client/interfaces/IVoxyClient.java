@@ -42,7 +42,9 @@ public interface IVoxyClient {
 	/**
 	 * Sends a request to the server to remove a room.
 	 *
-	 * @param name The room's name to remove.
+	 * @param name     The room's name to remove.
+	 * @param callback The callback to execute when a response from the server has been received. The boolean represents a success
+	 *                 status.
 	 */
-	void remove(String name);
+	void remove(String name, Consumer<Boolean> callback);
 }
