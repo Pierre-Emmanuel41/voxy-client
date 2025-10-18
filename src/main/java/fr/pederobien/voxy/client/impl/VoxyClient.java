@@ -1,10 +1,14 @@
 package fr.pederobien.voxy.client.impl;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import fr.pederobien.communication.impl.EthernetEndPoint;
 import fr.pederobien.communication.impl.layer.AesSafeLayerInitializer;
 import fr.pederobien.communication.interfaces.IEthernetEndPoint;
+import fr.pederobien.communication.interfaces.connection.ICallback.CallbackArgs;
 import fr.pederobien.communication.testing.tools.SimpleCertificate;
 import fr.pederobien.messenger.impl.Messenger;
 import fr.pederobien.messenger.impl.client.ProtocolClientConfig;
@@ -13,8 +17,14 @@ import fr.pederobien.messenger.interfaces.IRequestMessage;
 import fr.pederobien.messenger.interfaces.client.IProtocolClient;
 import fr.pederobien.protocol.interfaces.IError;
 import fr.pederobien.protocol.interfaces.IIdentifier;
+import fr.pederobien.protocol.interfaces.IRequest;
+import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.Logger;
+import fr.pederobien.voxy.client.event.VoxyClientConnected;
+import fr.pederobien.voxy.client.event.VoxyRoomAddedEvent;
 import fr.pederobien.voxy.client.interfaces.IVoxyClient;
+import fr.pederobien.voxy.client.interfaces.IVoxyPlayer;
+import fr.pederobien.voxy.client.interfaces.IVoxyRoom;
 import fr.pederobien.voxy.common.impl.VoxyErrors;
 import fr.pederobien.voxy.common.impl.VoxyIdentifiers;
 import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
@@ -22,12 +32,15 @@ import fr.pederobien.voxy.common.impl.requests.AddRoomRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
 import fr.pederobien.voxy.common.impl.requests.RemoveRoomRequest;
 import fr.pederobien.voxy.common.impl.requests.RenameRoomRequest;
+import fr.pederobien.voxy.common.impl.requests.ServerPropertiesRequest;
+import fr.pederobien.voxy.common.impl.requests.ServerPropertiesRequest.PlayerInfo;
+import fr.pederobien.voxy.common.impl.requests.ServerPropertiesRequest.RoomInfo;
 
 public class VoxyClient implements IVoxyClient {
 	private final String playerName;
 	private final ProtocolClientConfig<IEthernetEndPoint> config;
 	private final IProtocolClient client;
-	private Consumer<Boolean> callback;
+	private final Map<String, IVoxyRoom> rooms;
 
 	/**
 	 * Creates a client to communicate with a voxy server.
@@ -53,11 +66,12 @@ public class VoxyClient implements IVoxyClient {
 		config.addRequestHandler(VoxyIdentifiers.PLAYER_PROPERTIES, this::onPlayerProperties);
 
 		client = Messenger.createTcpClient(config);
+
+		rooms = new HashMap<String, IVoxyRoom>();
 	}
 
 	@Override
-	public void connect(Consumer<Boolean> callback) {
-		this.callback = callback;
+	public void connect() {
 		client.connect();
 	}
 
@@ -76,34 +90,173 @@ public class VoxyClient implements IVoxyClient {
 		return client.isDisposed();
 	}
 
+	@Override
+	public Map<String, IVoxyRoom> getRooms() {
+		return Collections.unmodifiableMap(rooms);
+	}
+
+	@Override
+	public void add(String name, Consumer<Boolean> callback) {
+		IRequestMessage request = getRequest(VoxyIdentifiers.ADD_ROOM, new AddRoomRequest(name, 0));
+		request.setCallback(args -> {
+			if (!args.isTimeout() && !args.isConnectionLost()) {
+				callback.accept(config.parse(args.response()).getError() == VoxyErrors.NO_ERROR);
+			} else
+				// No response from the server
+				callback.accept(false);
+		});
+
+		send(request);
+	}
+
+	@Override
+	public void remove(String name) {
+		// TODO: Sends a request to the server to remove a room
+	}
+
+	@Override
+	public String toString() {
+		return client.toString();
+	}
+
+	/**
+	 * Event handler: Method called when the server notify the client that a room has been added.
+	 *
+	 * @param connection The connection with the server.
+	 * @param messageID  The server's message identifier.
+	 * @param payload    The object that gather properties about the new room.
+	 */
 	private void onRoomAdded(IProtocolConnection connection, int messageID, Object payload) {
 		if (!(payload instanceof AddRoomRequest request))
 			return;
 
-		Logger.info("A room %s shall be added, communication on port %s", request.getName(), request.getPort());
+		debug("Receiving request to add room %s", request.getName());
+		IVoxyRoom room = new VoxyRoom(this, request.getName(), request.getPort(), new HashMap<String, IVoxyPlayer>());
+		rooms.put(request.getName(), room);
+		EventManager.callEvent(new VoxyRoomAddedEvent(room));
 	}
 
+	/**
+	 * Event handler: Method called when the server notify the client that a room has been removed.
+	 *
+	 * @param connection The connection with the server.
+	 * @param messageID  The server's message identifier.
+	 * @param payload    The object that gather properties about the removed room.
+	 */
 	private void onRoomRemoved(IProtocolConnection connection, int messageID, Object payload) {
 		if (!(payload instanceof RemoveRoomRequest request))
 			return;
 
-		Logger.info("The room %s shall be removed", request.getName());
+		debug("Receiving request to remove room %s", request.getName());
 	}
 
+	/**
+	 * Event handler: Method called when the server notify the client that a room has been renamed.
+	 *
+	 * @param connection The connection with the server.
+	 * @param messageID  The server's message identifier.
+	 * @param payload    The object that gather properties about the renamed room.
+	 */
 	private void onRoomRenamed(IProtocolConnection connection, int messageID, Object payload) {
 		if (!(payload instanceof RenameRoomRequest request))
 			return;
 
-		Logger.info("The room %s shall be renamed as %s", request.getOldName(), request.getNewName());
+		debug("Receiving request to rename room %s as %s", request.getOldName(), request.getNewName());
 	}
 
+	/**
+	 * Event handler: Method called when the server notify the client that a room has been added.
+	 *
+	 * @param connection The connection with the server.
+	 * @param messageID  The server's message identifier.
+	 * @param payload    The object that gather properties about the new room.
+	 */
 	private void onPlayerProperties(IProtocolConnection connection, int messageID, Object ignored) {
-		PlayerPropertiesRequest request = new PlayerPropertiesRequest(playerName, false, false);
+		debug("Server requires player's properties");
+		PlayerPropertiesRequest payload = new PlayerPropertiesRequest(playerName, false, false);
 
-		IRequestMessage response = getRequest(VoxyIdentifiers.PLAYER_PROPERTIES, request);
-		// A timeout means the server accepts the connection
-		response.setCallback(args -> callback.accept(config.parse(args.response()).getError() == VoxyErrors.NO_ERROR));
+		debug("Sending following payload: %s", payload);
+		IRequestMessage response = getRequest(VoxyIdentifiers.PLAYER_PROPERTIES, payload);
+		response.setCallback(args -> handlePlayerPropertiesResponse(args));
 		answer(messageID, response);
+	}
+
+	/**
+	 * Method called when the server accepts or not player's properties.
+	 *
+	 * @param argument The argument that contains server's response.
+	 */
+	private void handlePlayerPropertiesResponse(CallbackArgs argument) {
+		if (!(argument.isTimeout() || argument.isConnectionLost())) {
+			IRequest response = config.parse(argument.response());
+
+			if (response == null) {
+				Logger.error("Technical error happened: Could not parse server's response for player's properties");
+				EventManager.callEvent(new VoxyClientConnected(this, false));
+				return;
+			}
+
+			if (response.getIdentifier() != VoxyIdentifiers.ACKOWLEDGEMENT) {
+				debug("The server did not acknowledge back player's properties");
+				EventManager.callEvent(new VoxyClientConnected(this, false));
+				return;
+			}
+
+			if (response.getError() != VoxyErrors.NO_ERROR) {
+				debug("The server did not accept player properties: %s", response.getError().getMessage());
+				EventManager.callEvent(new VoxyClientConnected(this, false));
+				return;
+			}
+
+			// Sending request to get server's properties
+			debug("Requiring server's properties");
+			IRequestMessage request = getRequest(VoxyIdentifiers.SERVER_PROPERTIES, new ServerPropertiesRequest());
+			request.setCallback(args -> handleServerProperties(args));
+			send(request);
+
+		} else {
+			debug("A timeout or a connection lost happened after the client sent player's properties");
+			EventManager.callEvent(new VoxyClientConnected(this, false));
+		}
+	}
+
+	/**
+	 * Method called when the server sends it properties.
+	 *
+	 * @param argument The argument that contains server's response.
+	 */
+	private void handleServerProperties(CallbackArgs argument) {
+		if (!(argument.isTimeout() || argument.isConnectionLost())) {
+			IRequest response = config.parse(argument.response());
+
+			if (response == null) {
+				Logger.error("Technical error happened: Could not parse server's response for server's properties");
+				EventManager.callEvent(new VoxyClientConnected(this, false));
+				return;
+			}
+
+			if (response.getError() != VoxyErrors.NO_ERROR) {
+				debug("The server did not accept server's properties: %s", response.getError().getMessage());
+				EventManager.callEvent(new VoxyClientConnected(this, false));
+				return;
+			}
+
+			ServerPropertiesRequest serverProperties = (ServerPropertiesRequest) response.getPayload();
+			for (RoomInfo roomInfo : serverProperties.getRooms()) {
+
+				Map<String, IVoxyPlayer> players = new HashMap<String, IVoxyPlayer>();
+				for (PlayerInfo playerInfo : roomInfo.players())
+					players.put(playerInfo.name(), new VoxyPlayer(this, playerInfo.name(), playerInfo.isMute(), playerInfo.isDeaf()));
+
+				rooms.put(roomInfo.name(), new VoxyRoom(this, roomInfo.name(), roomInfo.port(), players));
+			}
+
+			info("%s successfully joined the voxy server", playerName);
+			EventManager.callEvent(new VoxyClientConnected(this, true));
+		} else {
+			debug("A timeout or a connection lost happened after the client asks for server's properties");
+			EventManager.callEvent(new VoxyClientConnected(this, false));
+		}
 	}
 
 	/**
@@ -151,17 +304,22 @@ public class VoxyClient implements IVoxyClient {
 	}
 
 	/**
-	 * Parse the given bytes array to get the payload.
+	 * Print a log using INFO level
 	 *
-	 * @param data The raw bytes array to parse.
-	 * @return The payload parsed, or null if a ClassCastException occurred.
+	 * @param message The message to print.
+	 * @param args    The arguments of the message.
 	 */
-	@SuppressWarnings("unchecked")
-	private <T> T parse(byte[] data) {
-		try {
-			return (T) config.parse(data).getPayload();
-		} catch (ClassCastException e) {
-			return null;
-		}
+	protected void info(String message, Object... args) {
+		Logger.info("%s - %s", client, String.format(message, args));
+	}
+
+	/**
+	 * Print a log using DEBUG level.
+	 *
+	 * @param message The message to print.
+	 * @param args    The arguments of the message.
+	 */
+	private void debug(String format, Object... args) {
+		Logger.debug("%s - %s", client, String.format(format, args));
 	}
 }
