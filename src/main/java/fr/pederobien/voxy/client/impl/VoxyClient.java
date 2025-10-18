@@ -22,7 +22,7 @@ import fr.pederobien.utils.event.EventHandler;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.IEventListener;
 import fr.pederobien.utils.event.Logger;
-import fr.pederobien.voxy.client.event.VoxyClientConnected;
+import fr.pederobien.voxy.client.event.VoxyClientConnectedEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomAddedEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomRemovedEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomRenameRequestEvent;
@@ -246,19 +246,19 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 
 			if (response == null) {
 				Logger.error("Technical error happened: Could not parse server's response for player's properties");
-				EventManager.callEvent(new VoxyClientConnected(this, false));
+				EventManager.callEvent(new VoxyClientConnectedEvent(this, false));
 				return;
 			}
 
 			if (response.getIdentifier() != VoxyIdentifiers.ACKOWLEDGEMENT) {
 				debug("The server did not acknowledge back player's properties");
-				EventManager.callEvent(new VoxyClientConnected(this, false));
+				EventManager.callEvent(new VoxyClientConnectedEvent(this, false));
 				return;
 			}
 
 			if (response.getError() != VoxyErrors.NO_ERROR) {
 				debug("The server did not accept player properties: %s", response.getError().getMessage());
-				EventManager.callEvent(new VoxyClientConnected(this, false));
+				EventManager.callEvent(new VoxyClientConnectedEvent(this, false));
 				return;
 			}
 
@@ -270,7 +270,7 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 
 		} else {
 			debug("A timeout or a connection lost happened after the client sent player's properties");
-			EventManager.callEvent(new VoxyClientConnected(this, false));
+			EventManager.callEvent(new VoxyClientConnectedEvent(this, false));
 		}
 	}
 
@@ -285,13 +285,13 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 
 			if (response == null) {
 				Logger.error("Technical error happened: Could not parse server's response for server's properties");
-				EventManager.callEvent(new VoxyClientConnected(this, false));
+				EventManager.callEvent(new VoxyClientConnectedEvent(this, false));
 				return;
 			}
 
 			if (response.getError() != VoxyErrors.NO_ERROR) {
 				debug("The server did not accept server's properties: %s", response.getError().getMessage());
-				EventManager.callEvent(new VoxyClientConnected(this, false));
+				EventManager.callEvent(new VoxyClientConnectedEvent(this, false));
 				return;
 			}
 
@@ -306,10 +306,10 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 			}
 
 			info("%s successfully joined the voxy server", playerName);
-			EventManager.callEvent(new VoxyClientConnected(this, true));
+			EventManager.callEvent(new VoxyClientConnectedEvent(this, true));
 		} else {
 			debug("A timeout or a connection lost happened after the client asks for server's properties");
-			EventManager.callEvent(new VoxyClientConnected(this, false));
+			EventManager.callEvent(new VoxyClientConnectedEvent(this, false));
 		}
 	}
 

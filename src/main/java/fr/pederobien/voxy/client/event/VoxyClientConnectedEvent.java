@@ -4,7 +4,7 @@ import java.util.StringJoiner;
 
 import fr.pederobien.voxy.client.interfaces.IVoxyClient;
 
-public class VoxyClientConnected extends VoxyClientEvent {
+public class VoxyClientConnectedEvent extends VoxyClientEvent {
 	private final boolean success;
 
 	/**
@@ -13,7 +13,7 @@ public class VoxyClientConnected extends VoxyClientEvent {
 	 * @param client  The connected client.
 	 * @param success True if the client is connected, false otherwise.
 	 */
-	public VoxyClientConnected(IVoxyClient client, boolean success) {
+	public VoxyClientConnectedEvent(IVoxyClient client, boolean success) {
 		super(client);
 
 		this.success = success;
