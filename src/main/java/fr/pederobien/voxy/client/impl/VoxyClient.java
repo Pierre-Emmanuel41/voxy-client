@@ -3,7 +3,6 @@ package fr.pederobien.voxy.client.impl;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Consumer;
 
 import fr.pederobien.communication.impl.EthernetEndPoint;
 import fr.pederobien.communication.impl.layer.AesSafeLayerInitializer;
@@ -18,14 +17,17 @@ import fr.pederobien.messenger.interfaces.client.IProtocolClient;
 import fr.pederobien.protocol.interfaces.IError;
 import fr.pederobien.protocol.interfaces.IIdentifier;
 import fr.pederobien.protocol.interfaces.IRequest;
-import fr.pederobien.utils.event.EventHandler;
+import fr.pederobien.utils.event.Event;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.IEventListener;
 import fr.pederobien.utils.event.Logger;
 import fr.pederobien.voxy.client.event.VoxyClientConnectedEvent;
+import fr.pederobien.voxy.client.event.VoxyRoomAddFailureEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomAddedEvent;
+import fr.pederobien.voxy.client.event.VoxyRoomJoinFailureEvent;
+import fr.pederobien.voxy.client.event.VoxyRoomRemoveFailureEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomRemovedEvent;
-import fr.pederobien.voxy.client.event.VoxyRoomRenameRequestEvent;
+import fr.pederobien.voxy.client.event.VoxyRoomRenameFailureEvent;
 import fr.pederobien.voxy.client.interfaces.IVoxyClient;
 import fr.pederobien.voxy.client.interfaces.IVoxyPlayer;
 import fr.pederobien.voxy.client.interfaces.IVoxyRoom;
@@ -33,6 +35,7 @@ import fr.pederobien.voxy.common.impl.VoxyErrors;
 import fr.pederobien.voxy.common.impl.VoxyIdentifiers;
 import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
 import fr.pederobien.voxy.common.impl.requests.AddRoomRequest;
+import fr.pederobien.voxy.common.impl.requests.JoinRoomRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
 import fr.pederobien.voxy.common.impl.requests.RemoveRoomRequest;
 import fr.pederobien.voxy.common.impl.requests.RenameRoomRequest;
@@ -45,7 +48,10 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 	private final ProtocolClientConfig<IEthernetEndPoint> config;
 	private final IProtocolClient client;
 	private final Map<String, VoxyRoom> rooms;
+	private final VocalClient vocalClient;
 	private final Object lock;
+	private boolean isMute;
+	private boolean isDeaf;
 
 	/**
 	 * Creates a client to communicate with a voxy server.
@@ -69,11 +75,15 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 		config.addRequestHandler(VoxyIdentifiers.REMOVE_ROOM, this::onRoomRemoved);
 		config.addRequestHandler(VoxyIdentifiers.RENAME_ROOM, this::onRoomRenamed);
 		config.addRequestHandler(VoxyIdentifiers.PLAYER_PROPERTIES, this::onPlayerProperties);
+		config.addRequestHandler(VoxyIdentifiers.JOIN_ROOM, this::onPlayerJoinedRoom);
 
 		client = Messenger.createTcpClient(config);
 
 		rooms = new HashMap<String, VoxyRoom>();
+		vocalClient = new VocalClient(this);
 		lock = new Object();
+		isMute = false;
+		isDeaf = false;
 
 		EventManager.registerListener(this);
 	}
@@ -99,36 +109,39 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 	}
 
 	@Override
+	public String getPlayerName() {
+		return playerName;
+	}
+
+	@Override
+	public boolean isMute() {
+		return isMute;
+	}
+
+	@Override
+	public boolean isDeaf() {
+		return isDeaf;
+	}
+
+	@Override
 	public Map<String, IVoxyRoom> getRooms() {
 		return Collections.unmodifiableMap(rooms);
 	}
 
 	@Override
-	public void add(String name, Consumer<Boolean> callback) {
+	public void add(String name) {
 		debug("Sending a request to the server to add room %s", name);
 		IRequestMessage request = getRequest(VoxyIdentifiers.ADD_ROOM, new AddRoomRequest(name, 0));
-		request.setCallback(args -> {
-			if (!args.isTimeout() && !args.isConnectionLost()) {
-				callback.accept(config.parse(args.response()).getError() == VoxyErrors.NO_ERROR);
-			} else
-				// No response from the server
-				callback.accept(false);
-		});
+		request.setCallback(args -> accept(args, new VoxyRoomAddFailureEvent(name)));
 
 		send(request);
 	}
 
 	@Override
-	public void remove(String name, Consumer<Boolean> callback) {
+	public void remove(String name) {
 		debug("Sending a request to the server to remove room %s", name);
 		IRequestMessage request = getRequest(VoxyIdentifiers.REMOVE_ROOM, new RemoveRoomRequest(name));
-		request.setCallback(args -> {
-			if (!args.isTimeout() && !args.isConnectionLost()) {
-				callback.accept(config.parse(args.response()).getError() == VoxyErrors.NO_ERROR);
-			} else
-				// No response from the server
-				callback.accept(false);
-		});
+		request.setCallback(args -> accept(args, new VoxyRoomRemoveFailureEvent(name)));
 
 		send(request);
 	}
@@ -138,22 +151,47 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 		return client.toString();
 	}
 
-	@EventHandler
-	private void onRoomRenameEvent(VoxyRoomRenameRequestEvent event) {
-		if (event.getRoom().getClient() != this)
-			return;
+	/**
+	 * @return The address of the voxy server.
+	 */
+	protected String getAddress() {
+		return config.getEndPoint().getAddress();
+	}
 
-		debug("Sending a request to the server to rename room %s as %s", event.getRoom().getName(), event.getNewName());
-		IRequestMessage request = getRequest(VoxyIdentifiers.RENAME_ROOM, new RenameRoomRequest(event.getRoom().getName(), event.getNewName()));
-		request.setCallback(args -> {
-			if (!args.isTimeout() && !args.isConnectionLost()) {
-				event.getCallback().accept(config.parse(args.response()).getError() == VoxyErrors.NO_ERROR);
-			} else
-				// No response from the server
-				event.getCallback().accept(false);
-		});
+	/**
+	 * Sends a request to the server to rename a room.
+	 * 
+	 * @param oldName The name of the room to rename.
+	 * @param newName The room's new name.
+	 */
+	protected void sendRoomRenameRequest(String oldName, String newName) {
+		debug("Sending a request to the server to rename room %s as %s", oldName, newName);
+		IRequestMessage request = getRequest(VoxyIdentifiers.RENAME_ROOM, new RenameRoomRequest(oldName, newName));
+		request.setCallback(args -> accept(args, new VoxyRoomRenameFailureEvent(oldName, newName)));
 
 		send(request);
+	}
+
+	/**
+	 * Sends a request to join a room on the server.
+	 * 
+	 * @param roomName The name of the room to join.
+	 */
+	protected void sendRoomJoinRequest(String roomName) {
+		debug("Sending a request to the server to join room %s", roomName);
+		IRequestMessage request = getRequest(VoxyIdentifiers.JOIN_ROOM, new JoinRoomRequest(roomName, playerName, isMute, isDeaf));
+		request.setCallback(args -> accept(args, new VoxyRoomJoinFailureEvent(roomName)));
+
+		send(request);
+	}
+
+	/**
+	 * Sends a request to leave a room on the server.
+	 * 
+	 * @param roomName The name of the room to leave.
+	 */
+	protected void sendRoomLeaveRequest(String roomName) {
+
 	}
 
 	/**
@@ -174,6 +212,7 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 			rooms.put(request.getName(), room);
 		}
 
+		info("Room %s has been added", room.getName());
 		EventManager.callEvent(new VoxyRoomAddedEvent(room));
 	}
 
@@ -196,6 +235,7 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 			room = rooms.remove(request.getName());
 		}
 
+		info("Room %s has been removed", room.getName());
 		EventManager.callEvent(new VoxyRoomRemovedEvent(room));
 	}
 
@@ -214,7 +254,7 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 		synchronized (lock) {
 			VoxyRoom room = rooms.remove(request.getOldName());
 			rooms.put(request.getNewName(), room);
-			room.setName(request.getNewName());
+			room.setNameInternal(request.getNewName());
 		}
 	}
 
@@ -223,16 +263,42 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 	 *
 	 * @param connection The connection with the server.
 	 * @param messageID  The server's message identifier.
-	 * @param payload    The object that gather properties about the new room.
 	 */
 	private void onPlayerProperties(IProtocolConnection connection, int messageID, Object ignored) {
 		debug("Server requires player's properties");
-		PlayerPropertiesRequest payload = new PlayerPropertiesRequest(playerName, false, false);
+		PlayerPropertiesRequest payload = new PlayerPropertiesRequest(playerName, isMute, isDeaf);
 
 		debug("Sending following payload: %s", payload);
 		IRequestMessage response = getRequest(VoxyIdentifiers.PLAYER_PROPERTIES, payload);
 		response.setCallback(args -> handlePlayerPropertiesResponse(args));
 		answer(messageID, response);
+	}
+
+	/**
+	 * Event handler: Method called when the server notify the client that a player joined a room.
+	 *
+	 * @param connection The connection with the server.
+	 * @param messageID  The server's message identifier.
+	 * @param payload    The object that gather properties about the renamed room.
+	 */
+	private void onPlayerJoinedRoom(IProtocolConnection connection, int messageID, Object payload) {
+		if (!(payload instanceof JoinRoomRequest request))
+			return;
+
+		debug("Receiving request that player %s joined room %s", request.getPlayerName(), request.getRoomName());
+		VoxyRoom room = rooms.get(request.getRoomName());
+
+		if (room == null) {
+			debug("Technical error: No existing room for %s", request.getRoomName());
+			EventManager.callEvent(new VoxyRoomJoinFailureEvent(request.getRoomName()));
+			return;
+		}
+
+		// Specific sequence : Connecting vocal client
+		if (request.getPlayerName().equals(playerName))
+			vocalClient.connect(room);
+		else
+			room.add(new VoxyPlayer(this, request.getPlayerName(), request.isMute(), request.isDeaf()));
 	}
 
 	/**
@@ -314,6 +380,22 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 	}
 
 	/**
+	 * Generic method to simplify source code reading.
+	 * 
+	 * @param args     The arguments that contains server's response.
+	 * @param callback The action to execute.
+	 */
+	private void accept(CallbackArgs args, Event event) {
+		if (args.isTimeout() || args.isConnectionLost())
+			EventManager.callEvent(event);
+		else {
+			IRequest response = config.parse(args.response());
+			if (response == null || response.getError() != VoxyErrors.NO_ERROR)
+				EventManager.callEvent(event);
+		}
+	}
+
+	/**
 	 * Creates a request associated to the given identifier, if supported by at least one protocol, and set its error code and
 	 * payload.
 	 *
@@ -363,7 +445,7 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 	 * @param message The message to print.
 	 * @param args    The arguments of the message.
 	 */
-	protected void info(String message, Object... args) {
+	private void info(String message, Object... args) {
 		Logger.info("%s - %s", client, String.format(message, args));
 	}
 
