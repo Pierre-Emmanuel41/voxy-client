@@ -64,6 +64,16 @@ public class VocalClient implements IEventListener {
 	}
 
 	/**
+	 * Disconnect the vocal client from the room's server.
+	 */
+	public void disconnect() {
+		debug("Disconnecting vocal client from vocal server");
+
+		vocalClient.disconnect();
+		room.remove(voxyClient.getPlayerName());
+	}
+
+	/**
 	 * Event handler: Method called when the server notify the client that a room has been added.
 	 *
 	 * @param connection The connection with the server.

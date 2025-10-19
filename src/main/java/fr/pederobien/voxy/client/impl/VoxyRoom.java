@@ -6,6 +6,7 @@ import java.util.Map;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.Logger;
 import fr.pederobien.voxy.client.event.VoxyRoomJoinedEvent;
+import fr.pederobien.voxy.client.event.VoxyRoomLeftEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomRenamedEvent;
 import fr.pederobien.voxy.client.interfaces.IVoxyClient;
 import fr.pederobien.voxy.client.interfaces.IVoxyPlayer;
@@ -65,7 +66,7 @@ public class VoxyRoom implements IVoxyRoom {
 
 	@Override
 	public void leave() {
-
+		client.sendRoomLeaveRequest(getName());
 	}
 
 	/**
@@ -109,10 +110,29 @@ public class VoxyRoom implements IVoxyRoom {
 				return;
 
 			players.put(player.getName(), player);
-
-			info("Player %s joined the room %s", player.getName(), getName());
-			EventManager.callEvent(new VoxyRoomJoinedEvent(this, player));
 		}
+
+		info("Player %s joined the room %s", player.getName(), getName());
+		EventManager.callEvent(new VoxyRoomJoinedEvent(this, player));
+	}
+
+	/**
+	 * Called internally to remove a player from this room.
+	 * 
+	 * @param player The player to remove from this room.
+	 */
+	protected void remove(String name) {
+		IVoxyPlayer player;
+
+		synchronized (lock) {
+			if (players.get(name) == null)
+				return;
+
+			player = players.remove(name);
+		}
+
+		info("Player %s left the room %s", player.getName(), getName());
+		EventManager.callEvent(new VoxyRoomLeftEvent(this, player));
 	}
 
 	/**

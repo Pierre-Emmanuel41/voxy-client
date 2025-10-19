@@ -25,6 +25,7 @@ import fr.pederobien.voxy.client.event.VoxyClientConnectedEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomAddFailureEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomAddedEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomJoinFailureEvent;
+import fr.pederobien.voxy.client.event.VoxyRoomLeaveFailureEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomRemoveFailureEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomRemovedEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomRenameFailureEvent;
@@ -36,6 +37,7 @@ import fr.pederobien.voxy.common.impl.VoxyIdentifiers;
 import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
 import fr.pederobien.voxy.common.impl.requests.AddRoomRequest;
 import fr.pederobien.voxy.common.impl.requests.JoinRoomRequest;
+import fr.pederobien.voxy.common.impl.requests.LeaveRoomRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
 import fr.pederobien.voxy.common.impl.requests.RemoveRoomRequest;
 import fr.pederobien.voxy.common.impl.requests.RenameRoomRequest;
@@ -76,6 +78,7 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 		config.addRequestHandler(VoxyIdentifiers.RENAME_ROOM, this::onRoomRenamed);
 		config.addRequestHandler(VoxyIdentifiers.PLAYER_PROPERTIES, this::onPlayerProperties);
 		config.addRequestHandler(VoxyIdentifiers.JOIN_ROOM, this::onPlayerJoinedRoom);
+		config.addRequestHandler(VoxyIdentifiers.LEAVE_ROOM, this::onPlayerLeftRoom);
 
 		client = Messenger.createTcpClient(config);
 
@@ -191,7 +194,12 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 	 * @param roomName The name of the room to leave.
 	 */
 	protected void sendRoomLeaveRequest(String roomName) {
+		debug("Sending a request to the server to leave room %s", roomName);
 
+		IRequestMessage request = getRequest(VoxyIdentifiers.LEAVE_ROOM, new LeaveRoomRequest(roomName, playerName));
+		request.setCallback(args -> accept(args, new VoxyRoomLeaveFailureEvent(roomName)));
+
+		send(request);
 	}
 
 	/**
@@ -259,27 +267,11 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 	}
 
 	/**
-	 * Event handler: Method called when the server notify the client that a room has been added.
-	 *
-	 * @param connection The connection with the server.
-	 * @param messageID  The server's message identifier.
-	 */
-	private void onPlayerProperties(IProtocolConnection connection, int messageID, Object ignored) {
-		debug("Server requires player's properties");
-		PlayerPropertiesRequest payload = new PlayerPropertiesRequest(playerName, isMute, isDeaf);
-
-		debug("Sending following payload: %s", payload);
-		IRequestMessage response = getRequest(VoxyIdentifiers.PLAYER_PROPERTIES, payload);
-		response.setCallback(args -> handlePlayerPropertiesResponse(args));
-		answer(messageID, response);
-	}
-
-	/**
 	 * Event handler: Method called when the server notify the client that a player joined a room.
 	 *
 	 * @param connection The connection with the server.
 	 * @param messageID  The server's message identifier.
-	 * @param payload    The object that gather properties about the renamed room.
+	 * @param payload    The object that gather properties about the room and the player.
 	 */
 	private void onPlayerJoinedRoom(IProtocolConnection connection, int messageID, Object payload) {
 		if (!(payload instanceof JoinRoomRequest request))
@@ -299,6 +291,49 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 			vocalClient.connect(room);
 		else
 			room.add(new VoxyPlayer(this, request.getPlayerName(), request.isMute(), request.isDeaf()));
+	}
+
+	/**
+	 * Event handler: Method called when the server notify the client that a player left a room.
+	 *
+	 * @param connection The connection with the server.
+	 * @param messageID  The server's message identifier.
+	 * @param payload    The object that gather properties about the room and the player.
+	 */
+	private void onPlayerLeftRoom(IProtocolConnection connection, int messageID, Object payload) {
+		if (!(payload instanceof LeaveRoomRequest request))
+			return;
+
+		debug("Receiving request that player %s left room %s", request.getPlayerName(), request.getRoomName());
+		VoxyRoom room = rooms.get(request.getRoomName());
+
+		if (room == null) {
+			debug("Technical error: No existing room for %s", request.getRoomName());
+			EventManager.callEvent(new VoxyRoomJoinFailureEvent(request.getRoomName()));
+			return;
+		}
+
+		// Specific sequence : Connecting vocal client
+		if (request.getPlayerName().equals(playerName))
+			vocalClient.disconnect();
+		else
+			room.remove(request.getPlayerName());
+	}
+
+	/**
+	 * Event handler: Method called when the server notify the client that a room has been added.
+	 *
+	 * @param connection The connection with the server.
+	 * @param messageID  The server's message identifier.
+	 */
+	private void onPlayerProperties(IProtocolConnection connection, int messageID, Object ignored) {
+		debug("Server requires player's properties");
+		PlayerPropertiesRequest payload = new PlayerPropertiesRequest(playerName, isMute, isDeaf);
+
+		debug("Sending following payload: %s", payload);
+		IRequestMessage response = getRequest(VoxyIdentifiers.PLAYER_PROPERTIES, payload);
+		response.setCallback(args -> handlePlayerPropertiesResponse(args));
+		answer(messageID, response);
 	}
 
 	/**
