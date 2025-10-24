@@ -1,6 +1,5 @@
 package fr.pederobien.voxy.client.impl;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -23,15 +22,13 @@ import fr.pederobien.utils.event.IEventListener;
 import fr.pederobien.utils.event.Logger;
 import fr.pederobien.voxy.client.event.VoxyClientConnectedEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomAddFailureEvent;
-import fr.pederobien.voxy.client.event.VoxyRoomAddedEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomJoinFailureEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomLeaveFailureEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomRemoveFailureEvent;
-import fr.pederobien.voxy.client.event.VoxyRoomRemovedEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomRenameFailureEvent;
+import fr.pederobien.voxy.client.interfaces.IRoomList;
 import fr.pederobien.voxy.client.interfaces.IVoxyClient;
 import fr.pederobien.voxy.client.interfaces.IVoxyPlayer;
-import fr.pederobien.voxy.client.interfaces.IVoxyRoom;
 import fr.pederobien.voxy.common.impl.VoxyErrors;
 import fr.pederobien.voxy.common.impl.VoxyIdentifiers;
 import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
@@ -49,9 +46,8 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 	private final String playerName;
 	private final ProtocolClientConfig<IEthernetEndPoint> config;
 	private final IProtocolClient client;
-	private final Map<String, VoxyRoom> rooms;
+	private final RoomList rooms;
 	private final VocalClient vocalClient;
-	private final Object lock;
 	private boolean isMute;
 	private boolean isDeaf;
 
@@ -82,9 +78,8 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 
 		client = Messenger.createTcpClient(config);
 
-		rooms = new HashMap<String, VoxyRoom>();
+		rooms = new RoomList(this);
 		vocalClient = new VocalClient(this);
-		lock = new Object();
 		isMute = false;
 		isDeaf = false;
 
@@ -127,26 +122,8 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 	}
 
 	@Override
-	public Map<String, IVoxyRoom> getRooms() {
-		return Collections.unmodifiableMap(rooms);
-	}
-
-	@Override
-	public void add(String name) {
-		debug("Sending a request to the server to add room %s", name);
-		IRequestMessage request = getRequest(VoxyIdentifiers.ADD_ROOM, new AddRoomRequest(name, 0));
-		request.setCallback(args -> accept(args, new VoxyRoomAddFailureEvent(name)));
-
-		send(request);
-	}
-
-	@Override
-	public void remove(String name) {
-		debug("Sending a request to the server to remove room %s", name);
-		IRequestMessage request = getRequest(VoxyIdentifiers.REMOVE_ROOM, new RemoveRoomRequest(name));
-		request.setCallback(args -> accept(args, new VoxyRoomRemoveFailureEvent(name)));
-
-		send(request);
+	public IRoomList getRooms() {
+		return rooms;
 	}
 
 	@Override
@@ -159,6 +136,32 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 	 */
 	protected String getAddress() {
 		return config.getEndPoint().getAddress();
+	}
+
+	/**
+	 * Sends a request to the server to add a room.
+	 * 
+	 * @param name The name of the room to add.
+	 */
+	protected void sendRoomAddRequest(String name) {
+		debug("Sending a request to the server to add room %s", name);
+		IRequestMessage request = getRequest(VoxyIdentifiers.ADD_ROOM, new AddRoomRequest(name, 0));
+		request.setCallback(args -> accept(args, new VoxyRoomAddFailureEvent(name)));
+
+		send(request);
+	}
+
+	/**
+	 * Sends a request to the server to remove a room.
+	 * 
+	 * @param name The name of the room to remove.
+	 */
+	protected void sendRoomRemoveRequest(String name) {
+		debug("Sending a request to the server to remove room %s", name);
+		IRequestMessage request = getRequest(VoxyIdentifiers.REMOVE_ROOM, new RemoveRoomRequest(name));
+		request.setCallback(args -> accept(args, new VoxyRoomRemoveFailureEvent(name)));
+
+		send(request);
 	}
 
 	/**
@@ -214,14 +217,7 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 			return;
 
 		debug("Receiving request to add room %s", request.getName());
-		VoxyRoom room = new VoxyRoom(this, request.getName(), request.getPort(), new HashMap<String, IVoxyPlayer>());
-
-		synchronized (lock) {
-			rooms.put(request.getName(), room);
-		}
-
-		info("Room %s has been added", room.getName());
-		EventManager.callEvent(new VoxyRoomAddedEvent(room));
+		rooms.add(new VoxyRoom(this, request.getName(), request.getPort(), new HashMap<String, IVoxyPlayer>()));
 	}
 
 	/**
@@ -237,14 +233,9 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 
 		debug("Receiving request to remove room %s", request.getName());
 
-		IVoxyRoom room;
-
-		synchronized (lock) {
-			room = rooms.remove(request.getName());
-		}
-
-		info("Room %s has been removed", room.getName());
-		EventManager.callEvent(new VoxyRoomRemovedEvent(room));
+		VoxyRoom room = rooms.getByName(request.getName());
+		if (room != null)
+			rooms.remove(room);
 	}
 
 	/**
@@ -259,11 +250,10 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 			return;
 
 		debug("Receiving request to rename room %s as %s", request.getOldName(), request.getNewName());
-		synchronized (lock) {
-			VoxyRoom room = rooms.remove(request.getOldName());
-			rooms.put(request.getNewName(), room);
+
+		VoxyRoom room = rooms.getByName(request.getOldName());
+		if (room != null)
 			room.setNameInternal(request.getNewName());
-		}
 	}
 
 	/**
@@ -278,10 +268,10 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 			return;
 
 		debug("Receiving request that player %s joined room %s", request.getPlayerName(), request.getRoomName());
-		VoxyRoom room = rooms.get(request.getRoomName());
+		VoxyRoom room = rooms.getByName(request.getRoomName());
 
 		if (room == null) {
-			debug("Technical error: No existing room for %s", request.getRoomName());
+			error("Technical error: No existing room for %s", request.getRoomName());
 			EventManager.callEvent(new VoxyRoomJoinFailureEvent(request.getRoomName()));
 			return;
 		}
@@ -305,11 +295,11 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 			return;
 
 		debug("Receiving request that player %s left room %s", request.getPlayerName(), request.getRoomName());
-		VoxyRoom room = rooms.get(request.getRoomName());
+		VoxyRoom room = rooms.getByName(request.getRoomName());
 
 		if (room == null) {
-			debug("Technical error: No existing room for %s", request.getRoomName());
-			EventManager.callEvent(new VoxyRoomJoinFailureEvent(request.getRoomName()));
+			error("Technical error: No existing room for %s", request.getRoomName());
+			EventManager.callEvent(new VoxyRoomLeaveFailureEvent(request.getRoomName()));
 			return;
 		}
 
@@ -403,7 +393,7 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 				for (PlayerInfo playerInfo : roomInfo.players())
 					players.put(playerInfo.name(), new VoxyPlayer(this, playerInfo.name(), playerInfo.isMute(), playerInfo.isDeaf()));
 
-				rooms.put(roomInfo.name(), new VoxyRoom(this, roomInfo.name(), roomInfo.port(), players));
+				rooms.add(new VoxyRoom(this, roomInfo.name(), roomInfo.port(), players));
 			}
 
 			info("%s successfully joined the voxy server", playerName);
@@ -492,5 +482,15 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 	 */
 	private void debug(String format, Object... args) {
 		Logger.debug("%s - %s", client, String.format(format, args));
+	}
+
+	/**
+	 * Print a log using ERROR level.
+	 *
+	 * @param message The message to print.
+	 * @param args    The arguments of the message.
+	 */
+	private void error(String format, Object... args) {
+		Logger.error("%s - %s", client, String.format(format, args));
 	}
 }

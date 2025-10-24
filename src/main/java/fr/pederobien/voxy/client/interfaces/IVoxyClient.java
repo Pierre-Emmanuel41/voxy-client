@@ -1,7 +1,5 @@
 package fr.pederobien.voxy.client.interfaces;
 
-import java.util.Map;
-
 public interface IVoxyClient {
 
 	/**
@@ -40,23 +38,7 @@ public interface IVoxyClient {
 	boolean isDeaf();
 
 	/**
-	 * @return The map of rooms where player can talk to each other. This map is unmodifiable.
+	 * @return The list of rooms.
 	 */
-	Map<String, IVoxyRoom> getRooms();
-
-	/**
-	 * Sends a request to the server to add a room. If the request is denied, a VoxyRoomAddFailureEvent is thrown. If the request is
-	 * allowed, the server will create a room and notify this client, resulting of throwing a VoxyRoomAddedEvent.
-	 *
-	 * @param name The room's name to add.
-	 */
-	void add(String name);
-
-	/**
-	 * Sends a request to the server to remove a room. If the request is denied, a VoxyRoomRemoveFailureEvent is thrown. If the
-	 * request is allowed, the server will remove the room and notify this client, resulting of throwing a VoxyRoomRemovedEvent.
-	 *
-	 * @param name The room's name to remove.
-	 */
-	void remove(String name);
+	IRoomList getRooms();
 }
