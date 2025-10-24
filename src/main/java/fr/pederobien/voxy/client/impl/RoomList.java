@@ -45,6 +45,11 @@ public class RoomList implements IRoomList {
 	}
 
 	@Override
+	public int size() {
+		return rooms.size();
+	}
+
+	@Override
 	public List<IVoxyRoom> toList() {
 		return Collections.unmodifiableList(rooms);
 	}
