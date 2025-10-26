@@ -23,22 +23,12 @@ public interface IVoxyClient {
 	boolean isDisposed();
 
 	/**
-	 * @return The name of the player associated to this client.
-	 */
-	String getPlayerName();
-
-	/**
-	 * @return True if the player is mute, false otherwise.
-	 */
-	boolean isMute();
-
-	/**
-	 * @return True if the player is deaf, false otherwise.
-	 */
-	boolean isDeaf();
-
-	/**
 	 * @return The list of rooms.
 	 */
 	IRoomList getRooms();
+
+	/**
+	 * @return The player associated to this client.
+	 */
+	IVoxyMainPlayer getPlayer();
 }

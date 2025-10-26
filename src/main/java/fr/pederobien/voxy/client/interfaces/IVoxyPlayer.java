@@ -3,11 +3,6 @@ package fr.pederobien.voxy.client.interfaces;
 public interface IVoxyPlayer {
 
 	/**
-	 * @return The client associated to this player.
-	 */
-	IVoxyClient getClient();
-
-	/**
 	 * @return The player's name
 	 */
 	String getName();

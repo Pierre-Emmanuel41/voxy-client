@@ -13,9 +13,12 @@ import fr.pederobien.messenger.interfaces.client.IProtocolClient;
 import fr.pederobien.protocol.interfaces.IError;
 import fr.pederobien.protocol.interfaces.IIdentifier;
 import fr.pederobien.protocol.interfaces.IRequest;
+import fr.pederobien.utils.event.EventHandler;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.IEventListener;
 import fr.pederobien.utils.event.Logger;
+import fr.pederobien.voxy.client.event.VoxyMainPlayerDeafStatusChangedEvent;
+import fr.pederobien.voxy.client.event.VoxyMainPlayerMuteStatusChangedEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomJoinFailureEvent;
 import fr.pederobien.voxy.common.impl.VoxyErrors;
 import fr.pederobien.voxy.common.impl.VoxyIdentifiers;
@@ -23,9 +26,9 @@ import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
 import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
 
 public class VocalClient implements IEventListener {
-	private final VoxyClient voxyClient;
+	private final VoxyMainPlayer player;
 	private ProtocolClientConfig<IEthernetEndPoint> config;
-	private IProtocolClient vocalClient;
+	private IProtocolClient client;
 	private VoxyRoom room;
 
 	/**
@@ -33,10 +36,8 @@ public class VocalClient implements IEventListener {
 	 * 
 	 * @param playerName The name of the player that communicate with other player in a room.
 	 */
-	public VocalClient(VoxyClient client) {
-		this.voxyClient = client;
-
-		EventManager.registerListener(this);
+	public VocalClient(VoxyMainPlayer player) {
+		this.player = player;
 	}
 
 	/**
@@ -49,7 +50,7 @@ public class VocalClient implements IEventListener {
 
 		// Connecting to the room's vocal server
 		IEthernetEndPoint endPoint = new EthernetEndPoint(room.getAddress(), room.getPort());
-		config = Messenger.createClientConfig(VoxyProtocolManager.instance(), voxyClient.getPlayerName() + " - VocalClient", endPoint);
+		config = Messenger.createClientConfig(VoxyProtocolManager.instance(), player.getName() + " - VocalClient", endPoint);
 
 		// TODO: Replace SimpleCertificate by a proper one
 		config.setLayerInitializer(() -> new AesSafeLayerInitializer(new SimpleCertificate()));
@@ -57,10 +58,12 @@ public class VocalClient implements IEventListener {
 		// Registering event handler
 		config.addRequestHandler(VoxyIdentifiers.PLAYER_PROPERTIES, this::onPlayerProperties);
 
-		vocalClient = Messenger.createUdpClient(config);
+		client = Messenger.createUdpClient(config);
 
-		debug("Connecting player %s to %s's vocal server", voxyClient.getPlayerName(), room.getName());
-		vocalClient.connect();
+		debug("Connecting player %s to %s's vocal server", player.getName(), room.getName());
+		client.connect();
+
+		EventManager.registerListener(this);
 	}
 
 	/**
@@ -69,8 +72,24 @@ public class VocalClient implements IEventListener {
 	public void disconnect() {
 		debug("Disconnecting vocal client from vocal server");
 
-		vocalClient.disconnect();
-		room.remove(voxyClient.getPlayerName());
+		client.disconnect();
+		room.remove(player.getName());
+	}
+
+	@EventHandler
+	private void onPlayerMuteStatusChanged(VoxyMainPlayerMuteStatusChangedEvent event) {
+		if (event.getPlayer() != player)
+			return;
+
+		debug("%s microphone", event.isMute() ? "Disabling" : "Enabling");
+	}
+
+	@EventHandler
+	private void onPlayerDeafStatusChanged(VoxyMainPlayerDeafStatusChangedEvent event) {
+		if (event.getPlayer() != player)
+			return;
+
+		debug("%s speakers", event.isDeaf() ? "Disabling" : "Enabling");
 	}
 
 	/**
@@ -81,7 +100,7 @@ public class VocalClient implements IEventListener {
 	 */
 	private void onPlayerProperties(IProtocolConnection connection, int messageID, Object ignored) {
 		debug("Server requires player's properties");
-		PlayerPropertiesRequest payload = new PlayerPropertiesRequest(voxyClient.getPlayerName(), voxyClient.isMute(), voxyClient.isDeaf());
+		PlayerPropertiesRequest payload = new PlayerPropertiesRequest(player.getName(), player.isMute(), player.isDeaf());
 
 		debug("Sending following payload: %s", payload);
 		IRequestMessage request = getRequest(VoxyIdentifiers.PLAYER_PROPERTIES, payload);
@@ -117,7 +136,7 @@ public class VocalClient implements IEventListener {
 			}
 
 			info("Connected successfully to %s's vocal server", room.getName());
-			room.add(new VoxyPlayer(voxyClient, voxyClient.getPlayerName(), voxyClient.isMute(), voxyClient.isDeaf()));
+			room.add(new VoxyPlayer(player));
 		} else {
 			debug("A timeout or a connection lost happened after the client sent player's properties");
 			EventManager.callEvent(new VoxyRoomJoinFailureEvent(room.getName()));
@@ -152,20 +171,11 @@ public class VocalClient implements IEventListener {
 	/**
 	 * Send the given request to the remote.
 	 *
-	 * @param request The request to send to the remote.
-	 */
-	private void send(IRequestMessage request) {
-		vocalClient.getConnection().send(request);
-	}
-
-	/**
-	 * Send the given request to the remote.
-	 *
 	 * @param messageID The identifier of the message received from the remote.
 	 * @param request   The request to send to the remote.
 	 */
 	private void answer(int messageID, IRequestMessage request) {
-		vocalClient.getConnection().answer(messageID, request);
+		client.getConnection().answer(messageID, request);
 	}
 
 	/**
@@ -175,7 +185,7 @@ public class VocalClient implements IEventListener {
 	 * @param args    The arguments of the message.
 	 */
 	private void info(String message, Object... args) {
-		Logger.info("%s - %s", vocalClient, String.format(message, args));
+		Logger.info("%s - %s", client, String.format(message, args));
 	}
 
 	/**
@@ -185,6 +195,6 @@ public class VocalClient implements IEventListener {
 	 * @param args    The arguments of the message.
 	 */
 	private void debug(String format, Object... args) {
-		Logger.debug("%s - %s", vocalClient, String.format(format, args));
+		Logger.debug("%s - %s", client, String.format(format, args));
 	}
 }

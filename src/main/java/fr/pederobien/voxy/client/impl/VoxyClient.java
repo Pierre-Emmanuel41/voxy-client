@@ -21,6 +21,7 @@ import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.IEventListener;
 import fr.pederobien.utils.event.Logger;
 import fr.pederobien.voxy.client.event.VoxyClientConnectedEvent;
+import fr.pederobien.voxy.client.event.VoxyPlayerMuteByFailureEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomAddFailureEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomJoinFailureEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomLeaveFailureEvent;
@@ -28,13 +29,18 @@ import fr.pederobien.voxy.client.event.VoxyRoomRemoveFailureEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomRenameFailureEvent;
 import fr.pederobien.voxy.client.interfaces.IRoomList;
 import fr.pederobien.voxy.client.interfaces.IVoxyClient;
+import fr.pederobien.voxy.client.interfaces.IVoxyMainPlayer;
 import fr.pederobien.voxy.client.interfaces.IVoxyPlayer;
+import fr.pederobien.voxy.client.interfaces.IVoxyRoom;
 import fr.pederobien.voxy.common.impl.VoxyErrors;
 import fr.pederobien.voxy.common.impl.VoxyIdentifiers;
 import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
 import fr.pederobien.voxy.common.impl.requests.AddRoomRequest;
 import fr.pederobien.voxy.common.impl.requests.JoinRoomRequest;
 import fr.pederobien.voxy.common.impl.requests.LeaveRoomRequest;
+import fr.pederobien.voxy.common.impl.requests.PlayerDeafRequest;
+import fr.pederobien.voxy.common.impl.requests.PlayerMuteByRequest;
+import fr.pederobien.voxy.common.impl.requests.PlayerMuteRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
 import fr.pederobien.voxy.common.impl.requests.RemoveRoomRequest;
 import fr.pederobien.voxy.common.impl.requests.RenameRoomRequest;
@@ -43,26 +49,22 @@ import fr.pederobien.voxy.common.impl.requests.ServerPropertiesRequest.PlayerInf
 import fr.pederobien.voxy.common.impl.requests.ServerPropertiesRequest.RoomInfo;
 
 public class VoxyClient implements IVoxyClient, IEventListener {
-	private final String playerName;
 	private final ProtocolClientConfig<IEthernetEndPoint> config;
 	private final IProtocolClient client;
-	private final RoomList rooms;
+	private final VoxyMainPlayer player;
 	private final VocalClient vocalClient;
-	private boolean isMute;
-	private boolean isDeaf;
+	private final RoomList rooms;
 
 	/**
 	 * Creates a client to communicate with a voxy server.
 	 *
-	 * @param playerName The player's name.
-	 * @param address    The server's address.
-	 * @param port       The server's port number.
+	 * @param name    The player's name.
+	 * @param address The server's address.
+	 * @param port    The server's port number.
 	 */
-	protected VoxyClient(String playerName, String address, int port) {
-		this.playerName = playerName;
-
+	protected VoxyClient(String name, String address, int port) {
 		IEthernetEndPoint endPoint = new EthernetEndPoint(address, port);
-		config = Messenger.createClientConfig(VoxyProtocolManager.instance(), playerName, endPoint);
+		config = Messenger.createClientConfig(VoxyProtocolManager.instance(), name, endPoint);
 
 		// Layer to communicate: RSA
 		// TODO: Replace SimpleCertificate by a proper one
@@ -75,13 +77,14 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 		config.addRequestHandler(VoxyIdentifiers.PLAYER_PROPERTIES, this::onPlayerProperties);
 		config.addRequestHandler(VoxyIdentifiers.JOIN_ROOM, this::onPlayerJoinedRoom);
 		config.addRequestHandler(VoxyIdentifiers.LEAVE_ROOM, this::onPlayerLeftRoom);
+		config.addRequestHandler(VoxyIdentifiers.PLAYER_MUTE, this::onPlayerMuteStatusChanged);
+		config.addRequestHandler(VoxyIdentifiers.PLAYER_DEAF, this::onPlayerDeafStatusChanged);
 
 		client = Messenger.createTcpClient(config);
 
+		player = new VoxyMainPlayer(this, name);
+		vocalClient = new VocalClient(player);
 		rooms = new RoomList(this);
-		vocalClient = new VocalClient(this);
-		isMute = false;
-		isDeaf = false;
 
 		EventManager.registerListener(this);
 	}
@@ -107,23 +110,13 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 	}
 
 	@Override
-	public String getPlayerName() {
-		return playerName;
-	}
-
-	@Override
-	public boolean isMute() {
-		return isMute;
-	}
-
-	@Override
-	public boolean isDeaf() {
-		return isDeaf;
-	}
-
-	@Override
 	public IRoomList getRooms() {
 		return rooms;
+	}
+
+	@Override
+	public IVoxyMainPlayer getPlayer() {
+		return player;
 	}
 
 	@Override
@@ -181,12 +174,14 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 	/**
 	 * Sends a request to join a room on the server.
 	 * 
-	 * @param roomName The name of the room to join.
+	 * @param name The name of the room to join.
 	 */
-	protected void sendRoomJoinRequest(String roomName) {
-		debug("Sending a request to the server to join room %s", roomName);
-		IRequestMessage request = getRequest(VoxyIdentifiers.JOIN_ROOM, new JoinRoomRequest(roomName, playerName, isMute, isDeaf));
-		request.setCallback(args -> accept(args, new VoxyRoomJoinFailureEvent(roomName)));
+	protected void sendRoomJoinRequest(String name) {
+		debug("Sending a request to the server to join room %s", name);
+
+		JoinRoomRequest payload = new JoinRoomRequest(name, player.getName(), player.isMute(), player.isDeaf());
+		IRequestMessage request = getRequest(VoxyIdentifiers.JOIN_ROOM, payload);
+		request.setCallback(args -> accept(args, new VoxyRoomJoinFailureEvent(name)));
 
 		send(request);
 	}
@@ -194,15 +189,50 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 	/**
 	 * Sends a request to leave a room on the server.
 	 * 
-	 * @param roomName The name of the room to leave.
+	 * @param name The name of the room to leave.
 	 */
-	protected void sendRoomLeaveRequest(String roomName) {
-		debug("Sending a request to the server to leave room %s", roomName);
+	protected void sendRoomLeaveRequest(String name) {
+		debug("Sending a request to the server to leave room %s", name);
 
-		IRequestMessage request = getRequest(VoxyIdentifiers.LEAVE_ROOM, new LeaveRoomRequest(roomName, playerName));
-		request.setCallback(args -> accept(args, new VoxyRoomLeaveFailureEvent(roomName)));
+		IRequestMessage request = getRequest(VoxyIdentifiers.LEAVE_ROOM, new LeaveRoomRequest(name, player.getName()));
+		request.setCallback(args -> accept(args, new VoxyRoomLeaveFailureEvent(name)));
 
 		send(request);
+	}
+
+	/**
+	 * Sends a request to the server that player's mute status has changed.
+	 * 
+	 * @param name   The name of the player whose the mute status has changed.
+	 * @param isMute True if the player is muted, false if the player is unmuted.
+	 */
+	protected void sendPlayerMuteStatusChanged(String name, boolean isMute) {
+		IRequestMessage request;
+
+		// Main player updated its own mute status
+		if (name.equals(player.getName())) {
+			debug("Sending a request to the server to update player %s's mute status, isMute=%s", name, isMute);
+			request = getRequest(VoxyIdentifiers.PLAYER_MUTE, new PlayerMuteRequest(name, isMute));
+		}
+		// Main player mutes/unmutes another player for itself
+		else {
+			debug("Sending a request to the server to update player %s's mute status for %s, isMute=%s", name, player.getName(), isMute);
+			request = getRequest(VoxyIdentifiers.PLAYER_MUTE_BY, new PlayerMuteByRequest(name, player.getName(), isMute));
+			request.setCallback(args -> accept(args, new VoxyPlayerMuteByFailureEvent(player, name, isMute)));
+		}
+
+		send(request);
+	}
+
+	/**
+	 * Sends a request to the server that player's deaf status has changed.
+	 * 
+	 * @param name   The name of the player whose the deaf status has changed.
+	 * @param isDeaf True if the player is deaf, false if the player is undeaf.
+	 */
+	protected void sendPlayerDeafStatusChanged(String name, boolean isDeaf) {
+		debug("Sending a request to the server to update player %s's deaf status, isDeaf=%s", name, isDeaf);
+		send(getRequest(VoxyIdentifiers.PLAYER_DEAF, new PlayerDeafRequest(name, isDeaf)));
 	}
 
 	/**
@@ -277,7 +307,7 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 		}
 
 		// Specific sequence : Connecting vocal client
-		if (request.getPlayerName().equals(playerName))
+		if (request.getPlayerName().equals(player.getName()))
 			vocalClient.connect(room);
 		else
 			room.add(new VoxyPlayer(this, request.getPlayerName(), request.isMute(), request.isDeaf()));
@@ -304,10 +334,56 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 		}
 
 		// Specific sequence : Connecting vocal client
-		if (request.getPlayerName().equals(playerName))
+		if (request.getPlayerName().equals(player.getName()))
 			vocalClient.disconnect();
 		else
 			room.remove(request.getPlayerName());
+	}
+
+	/**
+	 * Event handler: Method called when the server notify the client that player's mute status has changed.
+	 *
+	 * @param connection The connection with the server.
+	 * @param messageID  The server's message identifier.
+	 * @param payload    The object that gather properties about the player and the mute status.
+	 */
+	private void onPlayerMuteStatusChanged(IProtocolConnection connection, int messageID, Object payload) {
+		if (!(payload instanceof PlayerMuteRequest request))
+			return;
+
+		debug("Receiving request that the mute status of player %s has changed, isMute=%s", request.getName(), request.isMute());
+
+		for (IVoxyRoom room : rooms.toList()) {
+			IVoxyPlayer player = room.getPlayers().get(request.getName());
+
+			if (player != null) {
+				VoxyPlayer cast = (VoxyPlayer) player;
+				cast.setMuteInternal(request.isMute());
+			}
+		}
+	}
+
+	/**
+	 * Event handler: Method called when the server notify the client that player's deaf status has changed.
+	 *
+	 * @param connection The connection with the server.
+	 * @param messageID  The server's message identifier.
+	 * @param payload    The object that gather properties about the player and the deaf status.
+	 */
+	private void onPlayerDeafStatusChanged(IProtocolConnection connection, int messageID, Object payload) {
+		if (!(payload instanceof PlayerDeafRequest request))
+			return;
+
+		debug("Receiving request that the deaf status of player %s has changed, isDeaf=%s", request.getName(), request.isDeaf());
+
+		for (IVoxyRoom room : rooms.toList()) {
+			IVoxyPlayer player = room.getPlayers().get(request.getName());
+
+			if (player != null) {
+				VoxyPlayer cast = (VoxyPlayer) player;
+				cast.setDeafInternal(request.isDeaf());
+			}
+		}
 	}
 
 	/**
@@ -318,7 +394,7 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 	 */
 	private void onPlayerProperties(IProtocolConnection connection, int messageID, Object ignored) {
 		debug("Server requires player's properties");
-		PlayerPropertiesRequest payload = new PlayerPropertiesRequest(playerName, isMute, isDeaf);
+		PlayerPropertiesRequest payload = new PlayerPropertiesRequest(player.getName(), player.isMute(), player.isDeaf());
 
 		debug("Sending following payload: %s", payload);
 		IRequestMessage response = getRequest(VoxyIdentifiers.PLAYER_PROPERTIES, payload);
@@ -396,7 +472,7 @@ public class VoxyClient implements IVoxyClient, IEventListener {
 				rooms.add(new VoxyRoom(this, roomInfo.name(), roomInfo.port(), players));
 			}
 
-			info("%s successfully joined the voxy server", playerName);
+			info("%s successfully joined the voxy server", player.getName());
 			EventManager.callEvent(new VoxyClientConnectedEvent(this, true));
 		} else {
 			debug("A timeout or a connection lost happened after the client asks for server's properties");
