@@ -1,13 +1,6 @@
 package fr.pederobien.voxy.client.interfaces;
 
-import java.util.Map;
-
 public interface IVoxyRoom {
-
-	/**
-	 * @return The voxy client associated to this room.
-	 */
-	IVoxyClient getClient();
 
 	/**
 	 * @return The name of the room.
@@ -24,9 +17,9 @@ public interface IVoxyRoom {
 	void setName(String name);
 
 	/**
-	 * @return The map of player currently connected in this room. This map is unmodifiable.
+	 * @return The list of players registered in this room.
 	 */
-	Map<String, IVoxyPlayer> getPlayers();
+	IPlayerList getPlayers();
 
 	/**
 	 * Join this room to speak with other players present in this room. A request is sent to the server and if the request is denied,

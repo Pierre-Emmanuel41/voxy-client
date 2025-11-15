@@ -1,4 +1,4 @@
-package fr.pederobien.voxy.client.impl;
+package fr.pederobien.voxy.client.impl.internal;
 
 import fr.pederobien.communication.impl.EthernetEndPoint;
 import fr.pederobien.communication.impl.layer.AesSafeLayerInitializer;
@@ -13,30 +13,26 @@ import fr.pederobien.messenger.interfaces.client.IProtocolClient;
 import fr.pederobien.protocol.interfaces.IError;
 import fr.pederobien.protocol.interfaces.IIdentifier;
 import fr.pederobien.protocol.interfaces.IRequest;
-import fr.pederobien.utils.event.EventHandler;
 import fr.pederobien.utils.event.EventManager;
-import fr.pederobien.utils.event.IEventListener;
 import fr.pederobien.utils.event.Logger;
-import fr.pederobien.voxy.client.event.VoxyMainPlayerDeafStatusChangedEvent;
-import fr.pederobien.voxy.client.event.VoxyMainPlayerMuteStatusChangedEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomJoinFailureEvent;
 import fr.pederobien.voxy.common.impl.VoxyErrors;
 import fr.pederobien.voxy.common.impl.VoxyIdentifiers;
 import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
 import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
 
-public class VocalClient implements IEventListener {
-	private final VoxyMainPlayer player;
+public class VocalClient {
+	private final VoxyMainPlayerImpl player;
 	private ProtocolClientConfig<IEthernetEndPoint> config;
 	private IProtocolClient client;
-	private VoxyRoom room;
+	private VoxyRoomImpl room;
 
 	/**
 	 * Creates a UDP client associated to a player.
 	 * 
 	 * @param playerName The name of the player that communicate with other player in a room.
 	 */
-	public VocalClient(VoxyMainPlayer player) {
+	protected VocalClient(VoxyMainPlayerImpl player) {
 		this.player = player;
 	}
 
@@ -45,12 +41,13 @@ public class VocalClient implements IEventListener {
 	 * 
 	 * @param room The room to join.
 	 */
-	public void connect(VoxyRoom room) {
+	public void connect(VoxyRoomImpl room) {
 		this.room = room;
 
 		// Connecting to the room's vocal server
-		IEthernetEndPoint endPoint = new EthernetEndPoint(room.getAddress(), room.getPort());
+		IEthernetEndPoint endPoint = new EthernetEndPoint(player.getClient().getAddress(), room.getPort());
 		config = Messenger.createClientConfig(VoxyProtocolManager.instance(), player.getName() + " - VocalClient", endPoint);
+		config.setAutomaticReconnection(false);
 
 		// TODO: Replace SimpleCertificate by a proper one
 		config.setLayerInitializer(() -> new AesSafeLayerInitializer(new SimpleCertificate()));
@@ -62,34 +59,43 @@ public class VocalClient implements IEventListener {
 
 		debug("Connecting player %s to %s's vocal server", player.getName(), room.getName());
 		client.connect();
-
-		EventManager.registerListener(this);
 	}
 
 	/**
 	 * Disconnect the vocal client from the room's server.
 	 */
 	public void disconnect() {
-		debug("Disconnecting vocal client from vocal server");
+		// Vocal Client no connected to a room's server
+		if (room == null)
+			return;
 
 		client.disconnect();
-		room.remove(player.getName());
+		room = null;
 	}
 
-	@EventHandler
-	private void onPlayerMuteStatusChanged(VoxyMainPlayerMuteStatusChangedEvent event) {
-		if (event.getPlayer() != player)
-			return;
-
-		debug("%s microphone", event.isMute() ? "Disabling" : "Enabling");
+	/**
+	 * Set if the vocal client shall enable or disable the player's microphone.
+	 * 
+	 * @param isMute True to disable player's microphone, false to enable it.
+	 */
+	public void setMute(boolean isMute) {
+		debug("%s microphone", isMute ? "Disabling" : "Enabling");
 	}
 
-	@EventHandler
-	private void onPlayerDeafStatusChanged(VoxyMainPlayerDeafStatusChangedEvent event) {
-		if (event.getPlayer() != player)
-			return;
+	/**
+	 * Set if the vocal client shall enable or disable the player's speakers.
+	 * 
+	 * @param isDeaf True to disable player's speakers, false to enable them.
+	 */
+	public void setDeaf(boolean isDeaf) {
+		debug("%s speakers", isDeaf ? "Disabling" : "Enabling");
+	}
 
-		debug("%s speakers", event.isDeaf() ? "Disabling" : "Enabling");
+	/**
+	 * @return True if this client client is connected to a room's vocal server, false otherwise.
+	 */
+	public boolean isconnected() {
+		return room != null;
 	}
 
 	/**
@@ -114,33 +120,37 @@ public class VocalClient implements IEventListener {
 	 * @param argument The argument that contains server's response.
 	 */
 	private void handlePlayerPropertiesResponse(CallbackArgs argument) {
-		if (!(argument.isTimeout() || argument.isConnectionLost())) {
-			IRequest response = config.parse(argument.response());
-
-			if (response == null) {
-				Logger.error("Technical error happened: Could not parse server's response for player's properties");
-				EventManager.callEvent(new VoxyRoomJoinFailureEvent(room.getName()));
-				return;
-			}
-
-			if (response.getIdentifier() != VoxyIdentifiers.ACKOWLEDGEMENT) {
-				debug("The server did not acknowledge back player's properties");
-				EventManager.callEvent(new VoxyRoomJoinFailureEvent(room.getName()));
-				return;
-			}
-
-			if (response.getError() != VoxyErrors.NO_ERROR) {
-				debug("The server did not accept player properties: %s", response.getError().getMessage());
-				EventManager.callEvent(new VoxyRoomJoinFailureEvent(room.getName()));
-				return;
-			}
-
-			info("Connected successfully to %s's vocal server", room.getName());
-			room.add(new VoxyPlayer(player));
-		} else {
+		if (argument.isTimeout() || argument.isConnectionLost()) {
 			debug("A timeout or a connection lost happened after the client sent player's properties");
 			EventManager.callEvent(new VoxyRoomJoinFailureEvent(room.getName()));
+			room = null;
+			return;
 		}
+
+		IRequest response = config.parse(argument.response());
+
+		if (response == null) {
+			Logger.error("Technical error happened: Could not parse server's response for player's properties");
+			EventManager.callEvent(new VoxyRoomJoinFailureEvent(room.getName()));
+			room = null;
+			return;
+		}
+
+		if (response.getIdentifier() != VoxyIdentifiers.ACKOWLEDGEMENT) {
+			debug("The server did not acknowledge back player's properties");
+			EventManager.callEvent(new VoxyRoomJoinFailureEvent(room.getName()));
+			room = null;
+			return;
+		}
+
+		if (response.getError() != VoxyErrors.NO_ERROR) {
+			debug("The server did not accept player properties: %s", response.getError().getMessage());
+			EventManager.callEvent(new VoxyRoomJoinFailureEvent(room.getName()));
+			room = null;
+			return;
+		}
+
+		info("Connected successfully to %s's vocal server", room.getName());
 	}
 
 	/**
