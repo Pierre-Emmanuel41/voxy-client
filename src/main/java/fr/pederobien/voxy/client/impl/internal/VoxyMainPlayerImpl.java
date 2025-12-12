@@ -3,11 +3,9 @@ package fr.pederobien.voxy.client.impl.internal;
 import fr.pederobien.utils.event.EventHandler;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.IEventListener;
-import fr.pederobien.utils.event.Logger;
 import fr.pederobien.voxy.client.event.VoxyMainPlayerDeafStatusChangedEvent;
 import fr.pederobien.voxy.client.event.VoxyMainPlayerMuteStatusChangedEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomJoinedEvent;
-import fr.pederobien.voxy.client.event.VoxyRoomLeftEvent;
 import fr.pederobien.voxy.client.impl.VoxyMainPlayer;
 import fr.pederobien.voxy.client.interfaces.IVoxyMainPlayer;
 
@@ -29,7 +27,7 @@ public class VoxyMainPlayerImpl extends ClientElement implements IEventListener 
 
 		this.name = name;
 		isMute = true;
-		isDeaf = true;
+		isDeaf = false;
 
 		vocalClient = new VocalClient(this);
 		external = new VoxyMainPlayer(this);
@@ -65,10 +63,10 @@ public class VoxyMainPlayerImpl extends ClientElement implements IEventListener 
 		if (this.isMute == isMute || !vocalClient.isconnected())
 			return;
 
-		// TODO: Notify the server
-
 		// Updating internal mute status
 		setMute(isMute);
+
+		getClient().getNotifier().sendPlayerMuteStatusChanged(name, isMute);
 	}
 
 	/**
@@ -87,10 +85,10 @@ public class VoxyMainPlayerImpl extends ClientElement implements IEventListener 
 		if (this.isDeaf == isDeaf || !vocalClient.isconnected())
 			return;
 
-		// TODO: Notify the server
-
 		// Updating internal deaf status
 		setDeaf(isDeaf);
+
+		getClient().getNotifier().sendPlayerDeafStatusChanged(name, isDeaf);
 	}
 
 	/**
@@ -115,14 +113,6 @@ public class VoxyMainPlayerImpl extends ClientElement implements IEventListener 
 		vocalClient.connect(getClient().getRooms().getByName(event.getRoom().getName()));
 	}
 
-	@EventHandler
-	private void onPlayerLeftRoom(VoxyRoomLeftEvent event) {
-		if (!event.getPlayer().getName().equals(name))
-			return;
-
-		vocalClient.disconnect();
-	}
-
 	/**
 	 * Update the mute status of this voxy main player.
 	 * 
@@ -135,7 +125,7 @@ public class VoxyMainPlayerImpl extends ClientElement implements IEventListener 
 		// Updating vocal client's mute status
 		vocalClient.setMute(isMute);
 
-		Logger.info("%s - %s itself", this, isMute ? "muted" : "unmuted");
+		info("Player %s %s itself", this, isMute ? "muted" : "unmuted");
 		EventManager.callEvent(new VoxyMainPlayerMuteStatusChangedEvent(external, isMute));
 	}
 
@@ -151,7 +141,7 @@ public class VoxyMainPlayerImpl extends ClientElement implements IEventListener 
 		// Updating vocal client's deaf status
 		vocalClient.setDeaf(isDeaf);
 
-		Logger.info("%s - %s itself", this, isDeaf ? "deaf" : "undeaf");
+		info("Player %s %s itself", this, isDeaf ? "deaf" : "undeaf");
 		EventManager.callEvent(new VoxyMainPlayerDeafStatusChangedEvent(external, isDeaf));
 	}
 }
