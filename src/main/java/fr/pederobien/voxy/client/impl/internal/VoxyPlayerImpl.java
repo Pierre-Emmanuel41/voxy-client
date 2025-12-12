@@ -1,8 +1,8 @@
 package fr.pederobien.voxy.client.impl.internal;
 
 import fr.pederobien.utils.event.EventManager;
-import fr.pederobien.utils.event.Logger;
 import fr.pederobien.voxy.client.event.VoxyPlayerDeafStatusChangedEvent;
+import fr.pederobien.voxy.client.event.VoxyPlayerMuteStatusChangedEvent;
 import fr.pederobien.voxy.client.impl.VoxyPlayer;
 import fr.pederobien.voxy.client.interfaces.IVoxyPlayer;
 
@@ -72,8 +72,8 @@ public class VoxyPlayerImpl extends ClientElement {
 
 		this.isMute = isMute;
 
-		Logger.info("%s - %s itslef", this, isMute ? "muted" : "unmuted");
-		EventManager.callEvent(new VoxyPlayerDeafStatusChangedEvent(external, isMute));
+		info("Player %s %s itself", name, isMute ? "muted" : "unmuted");
+		EventManager.callEvent(new VoxyPlayerMuteStatusChangedEvent(external, isMute));
 	}
 
 	/**
@@ -94,7 +94,7 @@ public class VoxyPlayerImpl extends ClientElement {
 
 		this.isDeaf = isDeaf;
 
-		Logger.info("%s - %s itslef", this, isDeaf ? "deaf" : "undeaf");
+		info("Player %s %s itself", name, isDeaf ? "deaf" : "undeaf");
 		EventManager.callEvent(new VoxyPlayerDeafStatusChangedEvent(external, isDeaf));
 	}
 
