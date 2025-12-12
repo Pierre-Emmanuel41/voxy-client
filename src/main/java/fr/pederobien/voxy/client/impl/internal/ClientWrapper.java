@@ -69,7 +69,11 @@ public class ClientWrapper {
 	 * @param request The request to send to the remote.
 	 */
 	protected void send(IRequestMessage request) {
-		client.getConnection().send(request);
+		try {
+			client.getConnection().send(request);
+		} catch (NullPointerException e) {
+			// Do nothing
+		}
 	}
 
 	/**
@@ -79,7 +83,11 @@ public class ClientWrapper {
 	 * @param request   The request to send to the remote.
 	 */
 	protected void answer(int messageID, IRequestMessage request) {
-		client.getConnection().answer(messageID, request);
+		try {
+			client.getConnection().answer(messageID, request);
+		} catch (NullPointerException e) {
+			// Do nothing
+		}
 	}
 
 	/**
