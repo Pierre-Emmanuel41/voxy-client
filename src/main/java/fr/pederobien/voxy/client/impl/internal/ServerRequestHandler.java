@@ -123,7 +123,7 @@ public class ServerRequestHandler extends ClientWrapper {
 		VoxyRoomImpl room = getRooms().getByName(request.getRoomName());
 
 		if (room != null)
-			room.getPlayers().add(new VoxyPlayerImpl(null, request.getPlayerName(), request.isMute(), request.isDeaf()));
+			room.getPlayers().add(new VoxyPlayerImpl(client, request.getPlayerName(), request.isMute(), request.isDeaf()));
 	}
 
 	/**
