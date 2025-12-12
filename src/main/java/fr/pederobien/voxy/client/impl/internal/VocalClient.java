@@ -69,8 +69,8 @@ public class VocalClient {
 		if (room == null)
 			return;
 
-		client.disconnect();
 		room = null;
+		client.disconnect();
 	}
 
 	/**
@@ -151,6 +151,9 @@ public class VocalClient {
 		}
 
 		info("Connected successfully to %s's vocal server", room.getName());
+
+		setMute(player.isMute());
+		setDeaf(player.isDeaf());
 	}
 
 	/**
