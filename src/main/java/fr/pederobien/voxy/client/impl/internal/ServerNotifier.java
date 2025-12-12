@@ -43,7 +43,7 @@ public class ServerNotifier extends ClientWrapper {
 	 */
 	protected void sendRoomAddRequest(String name) {
 		info("Sending a request to the server to add room %s", name);
-		IRequestMessage request = getRequest(VoxyIdentifiers.ADD_ROOM, new AddRoomRequest(name, 0));
+		IRequestMessage request = getRequest(VoxyIdentifiers.ADD_ROOM, new AddRoomRequest(name, -1));
 		request.setCallback(args -> accept(args, new VoxyRoomAddFailureEvent(name)));
 
 		send(request);
@@ -98,6 +98,10 @@ public class ServerNotifier extends ClientWrapper {
 	 */
 	protected void sendRoomLeaveRequest(String name) {
 		info("Sending a request to the server to leave room %s", name);
+
+		// Disabling microphone and speakers before leaving a room
+		client.getPlayer().getVocalClient().setMute(true);
+		client.getPlayer().getVocalClient().setDeaf(true);
 
 		IRequestMessage request = getRequest(VoxyIdentifiers.LEAVE_ROOM, new LeaveRoomRequest(name, getPlayer().getName()));
 		request.setCallback(args -> accept(args, new VoxyRoomLeaveFailureEvent(name)));
