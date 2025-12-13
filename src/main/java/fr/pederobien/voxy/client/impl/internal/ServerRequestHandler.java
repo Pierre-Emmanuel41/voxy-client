@@ -218,7 +218,7 @@ public class ServerRequestHandler extends ClientWrapper {
 				return;
 			}
 
-			if (response.getIdentifier() != VoxyIdentifiers.ACKOWLEDGEMENT) {
+			if (response.getIdentifier() != VoxyIdentifiers.ACKNOWLEDGEMENT) {
 				debug("The server did not acknowledge back player's properties");
 				EventManager.callEvent(new VoxyClientConnectedEvent(client.getExternal(), false));
 				return;
