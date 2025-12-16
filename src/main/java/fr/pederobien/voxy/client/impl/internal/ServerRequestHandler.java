@@ -160,6 +160,9 @@ public class ServerRequestHandler extends ClientWrapper {
 
 		debug("Receiving request that the mute status of player %s has changed, isMute=%s", request.getName(), request.isMute());
 
+		if (request.getName().equals(client.getPlayer().getName()))
+			client.getPlayer().setMute(request.isMute());
+
 		getRooms().foreach(room -> {
 			VoxyPlayerImpl player = room.getPlayers().getByName(request.getName());
 			if (player != null)

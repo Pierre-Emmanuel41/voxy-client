@@ -5,6 +5,7 @@ import fr.pederobien.messenger.interfaces.IRequestMessage;
 import fr.pederobien.protocol.interfaces.IRequest;
 import fr.pederobien.utils.event.Event;
 import fr.pederobien.utils.event.EventManager;
+import fr.pederobien.voxy.client.event.VoxyMainPlayerMuteStatusChangedEvent;
 import fr.pederobien.voxy.client.event.VoxyPlayerMuteByFailureEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomAddFailureEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomJoinFailureEvent;
@@ -122,6 +123,7 @@ public class ServerNotifier extends ClientWrapper {
 		if (name.equals(getPlayer().getName())) {
 			info("Sending a request to the server to update player %s's mute status, isMute=%s", name, isMute);
 			request = getRequest(VoxyIdentifiers.PLAYER_MUTE, new PlayerMuteRequest(name, isMute));
+			request.setCallback(args -> accept(args, new VoxyMainPlayerMuteStatusChangedEvent(getPlayer().getExternal(), isMute)));
 		}
 		// Main player mutes/unmutes another player for itself
 		else {

@@ -20,7 +20,8 @@ public class VoxyMainPlayerImpl extends ClientElement implements IEventListener 
 	/**
 	 * Creates the implementation of a the main player of the voxy application.
 	 * 
-	 * @param client The client implementation associated to this main player implementation.
+	 * @param client The client implementation associated to this main player
+	 *               implementation.
 	 */
 	protected VoxyMainPlayerImpl(VoxyClientImpl client, String name) {
 		super(client);
@@ -63,9 +64,6 @@ public class VoxyMainPlayerImpl extends ClientElement implements IEventListener 
 		if (this.isMute == isMute || !vocalClient.isconnected())
 			return;
 
-		// Updating internal mute status
-		setMute(isMute);
-
 		getClient().getNotifier().sendPlayerMuteStatusChanged(name, isMute);
 	}
 
@@ -105,20 +103,12 @@ public class VoxyMainPlayerImpl extends ClientElement implements IEventListener 
 		return external;
 	}
 
-	@EventHandler
-	private void onPlayerJoinedRoom(VoxyRoomJoinedEvent event) {
-		if (!event.getPlayer().getName().equals(name))
-			return;
-
-		vocalClient.connect(getClient().getRooms().getByName(event.getRoom().getName()));
-	}
-
 	/**
 	 * Update the mute status of this voxy main player.
 	 * 
 	 * @param isMute True if the player is mute, false otherwise.
 	 */
-	private void setMute(boolean isMute) {
+	public void setMute(boolean isMute) {
 		// Updating player's mute status
 		this.isMute = isMute;
 
@@ -127,6 +117,14 @@ public class VoxyMainPlayerImpl extends ClientElement implements IEventListener 
 
 		info("Player %s %s itself", this, isMute ? "muted" : "unmuted");
 		EventManager.callEvent(new VoxyMainPlayerMuteStatusChangedEvent(external, isMute));
+	}
+
+	@EventHandler
+	private void onPlayerJoinedRoom(VoxyRoomJoinedEvent event) {
+		if (!event.getPlayer().getName().equals(name))
+			return;
+
+		vocalClient.connect(getClient().getRooms().getByName(event.getRoom().getName()));
 	}
 
 	/**
