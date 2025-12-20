@@ -15,7 +15,11 @@ import fr.pederobien.protocol.interfaces.IIdentifier;
 import fr.pederobien.protocol.interfaces.IRequest;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.Logger;
+import fr.pederobien.voxy.client.event.VoxyMicrophoneCloseFailureEvent;
+import fr.pederobien.voxy.client.event.VoxyMicrophoneOpenFailureEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomJoinFailureEvent;
+import fr.pederobien.voxy.client.event.VoxySpeakersCloseFailureEvent;
+import fr.pederobien.voxy.client.event.VoxySpeakersOpenFailureEvent;
 import fr.pederobien.voxy.common.impl.VoxyErrors;
 import fr.pederobien.voxy.common.impl.VoxyIdentifiers;
 import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
@@ -80,6 +84,21 @@ public class VocalClient {
 	 */
 	public void setMute(boolean isMute) {
 		debug("%s microphone", isMute ? "Disabling" : "Enabling");
+		if (isMute) {
+			try {
+				player.getClient().getMicrophone().close();
+			} catch (Exception e) {
+				error("An exception occurred while closing the microphone: %s", e.getMessage());
+				EventManager.callEvent(new VoxyMicrophoneCloseFailureEvent(e));
+			}
+		} else {
+			try {
+				player.getClient().getMicrophone().open();
+			} catch (Exception e) {
+				error("An exception occurred while opening the microphone: %s", e.getMessage());
+				EventManager.callEvent(new VoxyMicrophoneOpenFailureEvent(e));
+			}
+		}
 	}
 
 	/**
@@ -89,6 +108,21 @@ public class VocalClient {
 	 */
 	public void setDeaf(boolean isDeaf) {
 		debug("%s speakers", isDeaf ? "Disabling" : "Enabling");
+		if (isDeaf) {
+			try {
+				player.getClient().getSpeakers().close();
+			} catch (Exception e) {
+				error("An exception occurred while closing the speakers: %s", e.getMessage());
+				EventManager.callEvent(new VoxySpeakersCloseFailureEvent(e));
+			}
+		} else {
+			try {
+				player.getClient().getSpeakers().open();
+			} catch (Exception e) {
+				error("An exception occurred while opening the speakers: %s", e.getMessage());
+				EventManager.callEvent(new VoxySpeakersOpenFailureEvent(e));
+			}
+		}
 	}
 
 	/**
@@ -209,5 +243,15 @@ public class VocalClient {
 	 */
 	private void debug(String format, Object... args) {
 		Logger.debug("%s - %s", client, String.format(format, args));
+	}
+
+	/**
+	 * Print a log using ERROR level
+	 *
+	 * @param message The message to print.
+	 * @param args    The arguments of the message.
+	 */
+	protected void error(String format, Object... args) {
+		Logger.error("%s %s", client, String.format(format, args));
 	}
 }

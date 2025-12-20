@@ -1,0 +1,22 @@
+package fr.pederobien.voxy.client.interfaces;
+
+public interface IVoxyMicrophone {
+
+	/**
+	 * Opens the access to the microphone. If an error occurred while accessing the microphone, an exception shall be thrown.
+	 */
+	void open() throws Exception;
+
+	/**
+	 * Closes the access to the microphone. If an error occurred while closing the microphone, an exception shall be thrown.
+	 */
+	void close() throws Exception;
+
+	/**
+	 * Blocks until data are available to be sent to the remote. If the microphone is closed while waiting, it should stop waiting and
+	 * return an empty byte array.
+	 * 
+	 * @return The bytes array to send to the server.
+	 */
+	byte[] fetch();
+}

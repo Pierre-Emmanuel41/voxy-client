@@ -9,11 +9,15 @@ import fr.pederobien.messenger.impl.client.ProtocolClientConfig;
 import fr.pederobien.messenger.interfaces.client.IProtocolClient;
 import fr.pederobien.voxy.client.impl.VoxyClient;
 import fr.pederobien.voxy.client.interfaces.IVoxyClient;
+import fr.pederobien.voxy.client.interfaces.IVoxyMicrophone;
+import fr.pederobien.voxy.client.interfaces.IVoxySpeakers;
 import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
 
 public class VoxyClientImpl {
 	private final ProtocolClientConfig<IEthernetEndPoint> config;
 	private final IProtocolClient client;
+	private final IVoxyMicrophone microphone;
+	private final IVoxySpeakers speakers;
 	private final VoxyMainPlayerImpl player;
 	private final RoomListImpl rooms;
 	private final ServerNotifier notifier;
@@ -24,13 +28,17 @@ public class VoxyClientImpl {
 	/**
 	 * Creates the implementation of a voxy client.
 	 * 
-	 * @param name    The player's name.
-	 * @param address The server's address.
-	 * @param port    The server's port number.
+	 * @param name       The player's name.
+	 * @param address    The server's address.
+	 * @param port       The server's port number.
+	 * @param microphone The microphone to use to send audio samples to the server.
+	 * @param speakers   The speakers to use to player audio samples received from the server.
 	 */
-	protected VoxyClientImpl(String name, String address, int port) {
+	protected VoxyClientImpl(String name, String address, int port, IVoxyMicrophone microphone, IVoxySpeakers speakers) {
 		IEthernetEndPoint endPoint = new EthernetEndPoint(address, port);
 		config = Messenger.createClientConfig(VoxyProtocolManager.instance(), name, endPoint);
+		this.microphone = microphone;
+		this.speakers = speakers;
 
 		// TODO: Replace SimpleCertificate by a proper one
 		config.setLayerInitializer(() -> new AesSafeLayerInitializer(new SimpleCertificate()));
@@ -127,5 +135,19 @@ public class VoxyClientImpl {
 	 */
 	protected ProtocolClientConfig<IEthernetEndPoint> getConfig() {
 		return config;
+	}
+
+	/**
+	 * @return The microphone to use to send audio samples to the server.
+	 */
+	public IVoxyMicrophone getMicrophone() {
+		return microphone;
+	}
+
+	/**
+	 * @return The speakers to use to player audio samples received from the server.
+	 */
+	public IVoxySpeakers getSpeakers() {
+		return speakers;
 	}
 }

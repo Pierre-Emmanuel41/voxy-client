@@ -20,8 +20,7 @@ public class VoxyMainPlayerImpl extends ClientElement implements IEventListener 
 	/**
 	 * Creates the implementation of a the main player of the voxy application.
 	 * 
-	 * @param client The client implementation associated to this main player
-	 *               implementation.
+	 * @param client The client implementation associated to this main player implementation.
 	 */
 	protected VoxyMainPlayerImpl(VoxyClientImpl client, String name) {
 		super(client);
@@ -64,6 +63,8 @@ public class VoxyMainPlayerImpl extends ClientElement implements IEventListener 
 		if (this.isMute == isMute || !vocalClient.isconnected())
 			return;
 
+		debug("Player %s required to %s itself", this, isMute ? "mute" : "unmute");
+
 		getClient().getNotifier().sendPlayerMuteStatusChanged(name, isMute);
 	}
 
@@ -82,6 +83,8 @@ public class VoxyMainPlayerImpl extends ClientElement implements IEventListener 
 	public void sendPlayerDeafStatusChanged(boolean isDeaf) {
 		if (this.isDeaf == isDeaf || !vocalClient.isconnected())
 			return;
+
+		debug("Player %s required to %s itself", this, isDeaf ? "deaf" : "undeaf");
 
 		// Updating internal deaf status
 		setDeaf(isDeaf);

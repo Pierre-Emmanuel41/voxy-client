@@ -72,10 +72,10 @@ public class VoxyPlayerImpl extends ClientElement {
 
 		this.isMute = isMute;
 
-		if (!name.equals(getClient().getPlayer().getName()))
+		if (!name.equals(getClient().getPlayer().getName())) {
 			info("Player %s %s itself", name, isMute ? "muted" : "unmuted");
-
-		EventManager.callEvent(new VoxyPlayerMuteStatusChangedEvent(external, isMute));
+			EventManager.callEvent(new VoxyPlayerMuteStatusChangedEvent(external, isMute));
+		}
 	}
 
 	/**
@@ -88,8 +88,7 @@ public class VoxyPlayerImpl extends ClientElement {
 	/**
 	 * Set if this player is deaf or undeaf.
 	 *
-	 * @param isDeaf True if the player disabled its speakers, false if he enabled
-	 *               them.
+	 * @param isDeaf True if the player disabled its speakers, false if he enabled them.
 	 */
 	public void setDeaf(boolean isDeaf) {
 		if (this.isDeaf == isDeaf)
