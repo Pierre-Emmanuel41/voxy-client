@@ -13,6 +13,7 @@ import fr.pederobien.voxy.common.impl.requests.AddRoomRequest;
 import fr.pederobien.voxy.common.impl.requests.JoinRoomRequest;
 import fr.pederobien.voxy.common.impl.requests.LeaveRoomRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerDeafRequest;
+import fr.pederobien.voxy.common.impl.requests.PlayerMuteByRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerMuteRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
 import fr.pederobien.voxy.common.impl.requests.RemoveRoomRequest;
@@ -43,6 +44,7 @@ public class ServerRequestHandler extends ClientWrapper {
 		getConfig().addRequestHandler(VoxyIdentifiers.JOIN_ROOM, this::onPlayerJoinedRoom);
 		getConfig().addRequestHandler(VoxyIdentifiers.LEAVE_ROOM, this::onPlayerLeftRoom);
 		getConfig().addRequestHandler(VoxyIdentifiers.PLAYER_MUTE, this::onPlayerMuteStatusChanged);
+		getConfig().addRequestHandler(VoxyIdentifiers.PLAYER_MUTE_BY, this::onPlayerMuteByStatusChanged);
 		getConfig().addRequestHandler(VoxyIdentifiers.PLAYER_DEAF, this::onPlayerDeafStatusChanged);
 
 		isEnabled = false;
@@ -167,6 +169,26 @@ public class ServerRequestHandler extends ClientWrapper {
 			VoxyPlayerImpl player = room.getPlayers().getByName(request.getName());
 			if (player != null)
 				player.setMute(request.isMute());
+		});
+	}
+
+	/**
+	 * Event handler: Method called when the server notify the client that player's mute status has changed.
+	 *
+	 * @param connection The connection with the server.
+	 * @param messageID  The server's message identifier.
+	 * @param payload    The object that gather properties about the player and the mute status.
+	 */
+	private void onPlayerMuteByStatusChanged(IProtocolConnection connection, int messageID, Object payload) {
+		if (!isEnabled || !(payload instanceof PlayerMuteByRequest request))
+			return;
+
+		debug("Receiving request that the player %s %s player %s", request.getSource(), request.isMute() ? "muted" : "unmuted", request.getTarget());
+
+		getRooms().foreach(room -> {
+			VoxyPlayerImpl player = room.getPlayers().getByName(request.getTarget());
+			if (player != null)
+				player.setMuteByMainPlayer(request.isMute());
 		});
 	}
 

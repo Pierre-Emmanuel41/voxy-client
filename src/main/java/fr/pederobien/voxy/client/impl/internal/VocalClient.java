@@ -46,6 +46,9 @@ public class VocalClient {
 	 * @param room The room to join.
 	 */
 	public void connect(VoxyRoomImpl room) {
+		if (isConnected())
+			return;
+
 		this.room = room;
 
 		// Connecting to the room's vocal server
@@ -70,7 +73,7 @@ public class VocalClient {
 	 */
 	public void disconnect() {
 		// Vocal Client no connected to a room's server
-		if (room == null)
+		if (!isConnected())
 			return;
 
 		room = null;
@@ -128,7 +131,7 @@ public class VocalClient {
 	/**
 	 * @return True if this client client is connected to a room's vocal server, false otherwise.
 	 */
-	public boolean isconnected() {
+	public boolean isConnected() {
 		return room != null;
 	}
 

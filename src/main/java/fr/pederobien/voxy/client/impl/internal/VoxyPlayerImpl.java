@@ -2,6 +2,7 @@ package fr.pederobien.voxy.client.impl.internal;
 
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.voxy.client.event.VoxyPlayerDeafStatusChangedEvent;
+import fr.pederobien.voxy.client.event.VoxyPlayerMuteByStatusChangedEvent;
 import fr.pederobien.voxy.client.event.VoxyPlayerMuteStatusChangedEvent;
 import fr.pederobien.voxy.client.impl.VoxyPlayer;
 import fr.pederobien.voxy.client.interfaces.IVoxyPlayer;
@@ -9,6 +10,7 @@ import fr.pederobien.voxy.client.interfaces.IVoxyPlayer;
 public class VoxyPlayerImpl extends ClientElement {
 	private final String name;
 	private boolean isMute;
+	private boolean isMuteByMainPlayer;
 	private boolean isDeaf;
 	private final IVoxyPlayer external;
 
@@ -27,6 +29,7 @@ public class VoxyPlayerImpl extends ClientElement {
 		this.isMute = isMute;
 		this.isDeaf = isDeaf;
 
+		isMuteByMainPlayer = false;
 		external = new VoxyPlayer(this);
 	}
 
@@ -54,11 +57,12 @@ public class VoxyPlayerImpl extends ClientElement {
 	 * 
 	 * @param isMute True if the player is muted, false if the player is unmuted.
 	 */
-	public void sendPlayerMuteStatusChanged(boolean isMute) {
-		if (this.isMute == isMute)
+	public void sendPlayerMuteStatusChanged(boolean isMuteByMainPlayer) {
+		if (this.isMuteByMainPlayer == isMuteByMainPlayer)
 			return;
 
-		// TODO: Notify the server
+		debug("Player %s required to %s player %s", getClient().getPlayer().getName(), isMute ? "mute" : "unmute", name);
+		getClient().getNotifier().sendPlayerMuteStatusChanged(name, isMute);
 	}
 
 	/**
@@ -76,6 +80,27 @@ public class VoxyPlayerImpl extends ClientElement {
 			info("Player %s %s itself", name, isMute ? "muted" : "unmuted");
 			EventManager.callEvent(new VoxyPlayerMuteStatusChangedEvent(external, isMute));
 		}
+	}
+
+	/**
+	 * @return True if this player is muted by the main player, false otherwise.
+	 */
+	public boolean isMuteByMainPlayer() {
+		return isMuteByMainPlayer;
+	}
+
+	/**
+	 * Set if the main player mutes or unmutes this player.
+	 * 
+	 * @param isMuteByMainPlayer True if the main player mutes this player, false otherwise.
+	 */
+	public void setMuteByMainPlayer(boolean isMuteByMainPlayer) {
+		if (this.isMuteByMainPlayer == isMuteByMainPlayer)
+			return;
+
+		this.isMuteByMainPlayer = isMuteByMainPlayer;
+		info("Player %s %s player %s", getClient().getPlayer().getName(), isMute ? "muted" : "unmuted", name);
+		EventManager.callEvent(new VoxyPlayerMuteByStatusChangedEvent(external, isMuteByMainPlayer));
 	}
 
 	/**

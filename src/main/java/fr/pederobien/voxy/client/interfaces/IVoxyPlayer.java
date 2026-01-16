@@ -20,6 +20,11 @@ public interface IVoxyPlayer {
 	void setMute(boolean isMute);
 
 	/**
+	 * @return True if this player is muted by the main player, false otherwise.
+	 */
+	boolean isMuteByMainPlayer();
+
+	/**
 	 * @return True if the player disabled it speakers, false otherwise.
 	 */
 	boolean isDeaf();

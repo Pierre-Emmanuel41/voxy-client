@@ -87,7 +87,20 @@ public class ServerNotifier extends ClientWrapper {
 
 		JoinRoomRequest payload = new JoinRoomRequest(name, getPlayer().getName(), getPlayer().isMute(), getPlayer().isDeaf());
 		IRequestMessage request = getRequest(VoxyIdentifiers.JOIN_ROOM, payload);
-		request.setCallback(args -> accept(args, new VoxyRoomJoinFailureEvent(name)));
+		request.setCallback(args -> {
+			if (args.isTimeout() || args.isConnectionLost()) {
+				info("A timeout occured or the connection has been lost");
+				EventManager.callEvent(new VoxyRoomJoinFailureEvent(name));
+			} else {
+				IRequest response = getConfig().parse(args.response());
+				if (response == null || response.getError() != VoxyErrors.NO_ERROR) {
+					warning("The server denied the request: %s", response.getError().getMessage());
+					EventManager.callEvent(new VoxyRoomJoinFailureEvent(name));
+				} else {
+					getPlayer().getVocalClient().connect(client.getRooms().getByName(name));
+				}
+			}
+		});
 
 		send(request);
 	}
@@ -119,15 +132,15 @@ public class ServerNotifier extends ClientWrapper {
 	protected void sendPlayerMuteStatusChanged(String name, boolean isMute) {
 		IRequestMessage request;
 
+		info("Sending a request to the server to %s player %s", isMute ? "mute" : "unmute", name);
+
 		// Main player updated its own mute status
 		if (name.equals(getPlayer().getName())) {
-			info("Sending a request to the server to update player %s's mute status, isMute=%s", name, isMute);
 			request = getRequest(VoxyIdentifiers.PLAYER_MUTE, new PlayerMuteRequest(name, isMute));
 			request.setCallback(args -> accept(args, new VoxyMainPlayerMuteStatusChangedEvent(getPlayer().getExternal(), isMute)));
 		}
 		// Main player mutes/unmutes another player for itself
 		else {
-			info("Sending a request to the server to update player %s's mute status for %s, isMute=%s", name, getPlayer().getName(), isMute);
 			request = getRequest(VoxyIdentifiers.PLAYER_MUTE_BY, new PlayerMuteByRequest(name, getPlayer().getName(), isMute));
 			request.setCallback(args -> accept(args, new VoxyPlayerMuteByFailureEvent(getPlayer().getExternal(), name, isMute)));
 		}

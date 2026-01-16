@@ -37,6 +37,7 @@ public class VoxyClientImpl {
 	protected VoxyClientImpl(String name, String address, int port, IVoxyMicrophone microphone, IVoxySpeakers speakers) {
 		IEthernetEndPoint endPoint = new EthernetEndPoint(address, port);
 		config = Messenger.createClientConfig(VoxyProtocolManager.instance(), name, endPoint);
+
 		this.microphone = microphone;
 		this.speakers = speakers;
 

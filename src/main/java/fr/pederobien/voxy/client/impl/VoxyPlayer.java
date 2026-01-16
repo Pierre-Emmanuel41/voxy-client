@@ -31,6 +31,11 @@ public class VoxyPlayer implements IVoxyPlayer {
 	}
 
 	@Override
+	public boolean isMuteByMainPlayer() {
+		return impl.isMuteByMainPlayer();
+	}
+
+	@Override
 	public boolean isDeaf() {
 		return impl.isDeaf();
 	}

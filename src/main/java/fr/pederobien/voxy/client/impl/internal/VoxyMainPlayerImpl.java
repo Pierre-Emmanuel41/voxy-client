@@ -1,15 +1,12 @@
 package fr.pederobien.voxy.client.impl.internal;
 
-import fr.pederobien.utils.event.EventHandler;
 import fr.pederobien.utils.event.EventManager;
-import fr.pederobien.utils.event.IEventListener;
 import fr.pederobien.voxy.client.event.VoxyMainPlayerDeafStatusChangedEvent;
 import fr.pederobien.voxy.client.event.VoxyMainPlayerMuteStatusChangedEvent;
-import fr.pederobien.voxy.client.event.VoxyRoomJoinedEvent;
 import fr.pederobien.voxy.client.impl.VoxyMainPlayer;
 import fr.pederobien.voxy.client.interfaces.IVoxyMainPlayer;
 
-public class VoxyMainPlayerImpl extends ClientElement implements IEventListener {
+public class VoxyMainPlayerImpl extends ClientElement {
 	private final String name;
 	private final VocalClient vocalClient;
 	private boolean isMute;
@@ -31,8 +28,6 @@ public class VoxyMainPlayerImpl extends ClientElement implements IEventListener 
 
 		vocalClient = new VocalClient(this);
 		external = new VoxyMainPlayer(this);
-
-		EventManager.registerListener(this);
 	}
 
 	@Override
@@ -60,7 +55,7 @@ public class VoxyMainPlayerImpl extends ClientElement implements IEventListener 
 	 * @param isMute True if the player is muted, false if the player is unmuted.
 	 */
 	public void sendPlayerMuteStatusChanged(boolean isMute) {
-		if (this.isMute == isMute || !vocalClient.isconnected())
+		if (this.isMute == isMute || !vocalClient.isConnected())
 			return;
 
 		debug("Player %s required to %s itself", this, isMute ? "mute" : "unmute");
@@ -81,7 +76,7 @@ public class VoxyMainPlayerImpl extends ClientElement implements IEventListener 
 	 * @param isDeaf True if the player is deaf, false if the player is undeaf.
 	 */
 	public void sendPlayerDeafStatusChanged(boolean isDeaf) {
-		if (this.isDeaf == isDeaf || !vocalClient.isconnected())
+		if (this.isDeaf == isDeaf || !vocalClient.isConnected())
 			return;
 
 		debug("Player %s required to %s itself", this, isDeaf ? "deaf" : "undeaf");
@@ -120,14 +115,6 @@ public class VoxyMainPlayerImpl extends ClientElement implements IEventListener 
 
 		info("Player %s %s itself", this, isMute ? "muted" : "unmuted");
 		EventManager.callEvent(new VoxyMainPlayerMuteStatusChangedEvent(external, isMute));
-	}
-
-	@EventHandler
-	private void onPlayerJoinedRoom(VoxyRoomJoinedEvent event) {
-		if (!event.getPlayer().getName().equals(name))
-			return;
-
-		vocalClient.connect(getClient().getRooms().getByName(event.getRoom().getName()));
 	}
 
 	/**
