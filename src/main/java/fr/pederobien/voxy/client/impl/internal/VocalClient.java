@@ -5,6 +5,7 @@ import fr.pederobien.communication.impl.layer.AesSafeLayerInitializer;
 import fr.pederobien.communication.interfaces.IEthernetEndPoint;
 import fr.pederobien.communication.interfaces.connection.ICallback.CallbackArgs;
 import fr.pederobien.communication.testing.tools.SimpleCertificate;
+import fr.pederobien.messenger.event.ProtocolConnectionLostEvent;
 import fr.pederobien.messenger.impl.Messenger;
 import fr.pederobien.messenger.impl.client.ProtocolClientConfig;
 import fr.pederobien.messenger.interfaces.IProtocolConnection;
@@ -13,23 +14,25 @@ import fr.pederobien.messenger.interfaces.client.IProtocolClient;
 import fr.pederobien.protocol.interfaces.IError;
 import fr.pederobien.protocol.interfaces.IIdentifier;
 import fr.pederobien.protocol.interfaces.IRequest;
+import fr.pederobien.utils.event.EventHandler;
 import fr.pederobien.utils.event.EventManager;
+import fr.pederobien.utils.event.IEventListener;
 import fr.pederobien.utils.event.Logger;
-import fr.pederobien.voxy.client.event.VoxyMicrophoneCloseFailureEvent;
-import fr.pederobien.voxy.client.event.VoxyMicrophoneOpenFailureEvent;
+import fr.pederobien.voxy.client.event.VoxyMainPlayerSpeakingEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomJoinFailureEvent;
-import fr.pederobien.voxy.client.event.VoxySpeakersCloseFailureEvent;
-import fr.pederobien.voxy.client.event.VoxySpeakersOpenFailureEvent;
+import fr.pederobien.voxy.client.event.VoxyRoomJoinedEvent;
 import fr.pederobien.voxy.common.impl.VoxyErrors;
 import fr.pederobien.voxy.common.impl.VoxyIdentifiers;
 import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
 import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
+import fr.pederobien.voxy.common.impl.requests.PlayerSpeakRequest;
 
-public class VocalClient {
+public class VocalClient implements IEventListener {
 	private final VoxyMainPlayerImpl player;
 	private ProtocolClientConfig<IEthernetEndPoint> config;
 	private IProtocolClient client;
 	private VoxyRoomImpl room;
+	private SoundApiManager soundManager;
 
 	/**
 	 * Creates a UDP client associated to a player.
@@ -38,6 +41,8 @@ public class VocalClient {
 	 */
 	protected VocalClient(VoxyMainPlayerImpl player) {
 		this.player = player;
+		soundManager = new SoundApiManager(player.getClient());
+		EventManager.registerListener(this);
 	}
 
 	/**
@@ -61,6 +66,7 @@ public class VocalClient {
 
 		// Registering event handler
 		config.addRequestHandler(VoxyIdentifiers.PLAYER_PROPERTIES, this::onPlayerProperties);
+		config.addRequestHandler(VoxyIdentifiers.PLAYER_SPEAK, this::onPlayerSpeak);
 
 		client = Messenger.createUdpClient(config);
 
@@ -72,12 +78,22 @@ public class VocalClient {
 	 * Disconnect the vocal client from the room's server.
 	 */
 	public void disconnect() {
-		// Vocal Client no connected to a room's server
+		// Vocal Client not connected to a room's server
 		if (!isConnected())
 			return;
 
 		room = null;
+		setMute(true);
+		setDeaf(true);
 		client.disconnect();
+	}
+
+	/**
+	 * Dispose the vocal client, free all resources to communicate with the server and all resources used by the sound API.
+	 */
+	public void dispose() {
+		soundManager.dispose();
+		client.dispose();
 	}
 
 	/**
@@ -86,22 +102,7 @@ public class VocalClient {
 	 * @param isMute True to disable player's microphone, false to enable it.
 	 */
 	public void setMute(boolean isMute) {
-		debug("%s microphone", isMute ? "Disabling" : "Enabling");
-		if (isMute) {
-			try {
-				player.getClient().getMicrophone().close();
-			} catch (Exception e) {
-				error("An exception occurred while closing the microphone: %s", e.getMessage());
-				EventManager.callEvent(new VoxyMicrophoneCloseFailureEvent(e));
-			}
-		} else {
-			try {
-				player.getClient().getMicrophone().open();
-			} catch (Exception e) {
-				error("An exception occurred while opening the microphone: %s", e.getMessage());
-				EventManager.callEvent(new VoxyMicrophoneOpenFailureEvent(e));
-			}
-		}
+		soundManager.setMute(isMute);
 	}
 
 	/**
@@ -110,22 +111,7 @@ public class VocalClient {
 	 * @param isDeaf True to disable player's speakers, false to enable them.
 	 */
 	public void setDeaf(boolean isDeaf) {
-		debug("%s speakers", isDeaf ? "Disabling" : "Enabling");
-		if (isDeaf) {
-			try {
-				player.getClient().getSpeakers().close();
-			} catch (Exception e) {
-				error("An exception occurred while closing the speakers: %s", e.getMessage());
-				EventManager.callEvent(new VoxySpeakersCloseFailureEvent(e));
-			}
-		} else {
-			try {
-				player.getClient().getSpeakers().open();
-			} catch (Exception e) {
-				error("An exception occurred while opening the speakers: %s", e.getMessage());
-				EventManager.callEvent(new VoxySpeakersOpenFailureEvent(e));
-			}
-		}
+		soundManager.setDeaf(isDeaf);
 	}
 
 	/**
@@ -135,11 +121,38 @@ public class VocalClient {
 		return room != null;
 	}
 
+	@EventHandler
+	private void onPlayerJoinedRoom(VoxyRoomJoinedEvent event) {
+		if (!event.getPlayer().getName().equals(player.getName()))
+			return;
+
+		soundManager.setMute(player.isMute());
+		soundManager.setDeaf(player.isDeaf());
+	}
+
+	@EventHandler
+	private void onMainPlayerSpeaking(VoxyMainPlayerSpeakingEvent event) {
+		if (event.getPlayer() != player.getExternal())
+			return;
+
+		send(VoxyIdentifiers.PLAYER_SPEAK, new PlayerSpeakRequest(player.getName(), event.getSample(), event.getAlgorithm()));
+	}
+
+	@EventHandler
+	private void onConnectionLost(ProtocolConnectionLostEvent event) {
+		if (event.getConnection() != client.getConnection())
+			return;
+
+		// Used by the isConnected method
+		room = null;
+	}
+
 	/**
-	 * Event handler: Method called when the server notify the client that a room has been added.
+	 * Event handler: Method called when the server requires player's properties.
 	 *
 	 * @param connection The connection with the server.
 	 * @param messageID  The server's message identifier.
+	 * @param ignored    The payload sent by the server to get player properties.
 	 */
 	private void onPlayerProperties(IProtocolConnection connection, int messageID, Object ignored) {
 		debug("Server requires player's properties");
@@ -149,6 +162,26 @@ public class VocalClient {
 		IRequestMessage request = getRequest(VoxyIdentifiers.PLAYER_PROPERTIES, payload);
 		request.setCallback(args -> handlePlayerPropertiesResponse(args));
 		answer(messageID, request);
+	}
+
+	/**
+	 * Event handler: Method called when the server notify this client that a player is speaking
+	 *
+	 * @param connection The connection with the server.
+	 * @param messageID  The server's message identifier.
+	 * @param payload    The payload sent by the server to get player properties.
+	 */
+	private void onPlayerSpeak(IProtocolConnection connection, int messageID, Object payload) {
+		if (!(payload instanceof PlayerSpeakRequest request))
+			return;
+
+		debug("Server notified that %s is speaking", request.getName());
+		String name = request.getName();
+		byte algorithm = request.getAlgorithm();
+		float left = request.getLeft();
+		float right = request.getRight();
+		float global = request.getGlobal();
+		soundManager.onPlayerSpeak(name, request.getSample(), algorithm, left, right, global);
 	}
 
 	/**
@@ -188,9 +221,6 @@ public class VocalClient {
 		}
 
 		info("Connected successfully to %s's vocal server", room.getName());
-
-		setMute(player.isMute());
-		setDeaf(player.isDeaf());
 	}
 
 	/**
@@ -226,6 +256,16 @@ public class VocalClient {
 	 */
 	private void answer(int messageID, IRequestMessage request) {
 		client.getConnection().answer(messageID, request);
+	}
+
+	/**
+	 * Creates a request based on the given identifier and payload and send it to the server.
+	 * 
+	 * @param identifier The request's identifier.
+	 * @param payload    The request's payload.
+	 */
+	private void send(IIdentifier identifier, Object payload) {
+		client.getConnection().send(getRequest(identifier, VoxyErrors.NO_ERROR, payload));
 	}
 
 	/**

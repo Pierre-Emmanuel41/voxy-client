@@ -13,10 +13,10 @@ public interface IVoxyMicrophone {
 	void close() throws Exception;
 
 	/**
-	 * Blocks until data are available to be sent to the remote. If the microphone is closed while waiting, it should stop waiting and
-	 * return an empty byte array.
+	 * Blocks until data are available to be sent to the remote. If the microphone is closed while waiting, the method shall returns a
+	 * null bytes array. If there is no data to send, the method shall return an empty bytes array.
 	 * 
 	 * @return The bytes array to send to the server.
 	 */
-	byte[] fetch();
+	byte[] fetch() throws Exception;
 }

@@ -13,10 +13,9 @@ public interface IVoxySpeakers {
 	void close() throws Exception;
 
 	/**
-	 * Adds an audio sample in the stream of a player.
+	 * Write an audio sample in the stream of a player.
 	 * 
-	 * @param name The player name associated to the audio sample.
-	 * @param data The player's audio sample.
+	 * @param sample The audio sample to play.
 	 */
-	public void add(String name, byte[] data);
+	public void write(IAudioSample sample);
 }
