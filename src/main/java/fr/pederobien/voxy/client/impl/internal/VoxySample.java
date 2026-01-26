@@ -1,8 +1,8 @@
 package fr.pederobien.voxy.client.impl.internal;
 
-import fr.pederobien.voxy.client.interfaces.IAudioSample;
+import fr.pederobien.voxy.client.interfaces.IVoxySample;
 
-public class AudioSample implements IAudioSample {
+public class VoxySample implements IVoxySample {
 	private final String name;
 	private final byte[] data;
 	private final float left;
@@ -18,7 +18,7 @@ public class AudioSample implements IAudioSample {
 	 * @param right  The volume on the right side.
 	 * @param global The global volume on both sides.
 	 */
-	public AudioSample(String name, byte[] data, float left, float right, float global) {
+	public VoxySample(String name, byte[] data, float left, float right, float global) {
 		this.name = name;
 		this.data = data;
 		this.left = left;

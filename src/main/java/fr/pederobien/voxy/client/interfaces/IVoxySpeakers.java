@@ -17,5 +17,5 @@ public interface IVoxySpeakers {
 	 * 
 	 * @param sample The audio sample to play.
 	 */
-	public void write(IAudioSample sample);
+	public void write(IVoxySample sample);
 }

@@ -1,6 +1,6 @@
 package fr.pederobien.voxy.client.interfaces;
 
-public interface IAudioSample {
+public interface IVoxySample {
 
 	/**
 	 * @return The player's name associated to this audio sample.

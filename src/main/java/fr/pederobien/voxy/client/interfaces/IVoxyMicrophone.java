@@ -14,7 +14,7 @@ public interface IVoxyMicrophone {
 
 	/**
 	 * Blocks until data are available to be sent to the remote. If the microphone is closed while waiting, the method shall returns a
-	 * null bytes array. If there is no data to send, the method shall return an empty bytes array.
+	 * null bytes array.
 	 * 
 	 * @return The bytes array to send to the server.
 	 */

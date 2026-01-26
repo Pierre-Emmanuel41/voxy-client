@@ -214,7 +214,7 @@ public class SoundApiManager extends ClientElement {
 
 			// TODO: Uncompress audio sample here.
 
-			soundApi.getSpeakers().write(new AudioSample(name, uncompressed, left, right, global));
+			soundApi.getSpeakers().write(new VoxySample(name, uncompressed, left, right, global));
 		}
 
 		/**
@@ -225,12 +225,9 @@ public class SoundApiManager extends ClientElement {
 				while (!isMute) {
 					byte[] sample = soundApi.getMicrophone().fetch();
 
+					// Case the microphone has been closed
 					if (isMute || sample == null)
 						break;
-
-					// Case the microphone has been closed
-					if (sample.length == 0)
-						continue;
 
 					// Notifying the main player is speaking
 					samplesQueue.add(sample);
