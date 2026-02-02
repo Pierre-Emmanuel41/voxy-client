@@ -44,7 +44,7 @@ public class ServerNotifier extends ClientWrapper {
 	 */
 	protected void sendRoomAddRequest(String name) {
 		info("Sending a request to the server to add room %s", name);
-		IRequestMessage request = getRequest(VoxyIdentifiers.ADD_ROOM, new AddRoomRequest(name, -1));
+		IRequestMessage request = getRequest(VoxyIdentifiers.ADD_ROOM, new AddRoomRequest(name));
 		request.setCallback(args -> accept(args, new VoxyRoomAddFailureEvent(name)));
 
 		send(request);
