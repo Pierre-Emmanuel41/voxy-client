@@ -205,6 +205,9 @@ public class ServerRequestHandler extends ClientWrapper {
 
 		debug("Receiving request that the deaf status of player %s has changed, isDeaf=%s", request.getName(), request.isDeaf());
 
+		if (request.getName().equals(getPlayer().getName()))
+			getPlayer().setDeaf(request.isDeaf());
+
 		getRooms().foreach(room -> {
 			VoxyPlayerImpl player = room.getPlayers().getByName(request.getName());
 			if (player != null)

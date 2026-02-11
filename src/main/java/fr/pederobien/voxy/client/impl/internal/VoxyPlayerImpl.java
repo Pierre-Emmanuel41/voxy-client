@@ -121,8 +121,10 @@ public class VoxyPlayerImpl extends ClientElement {
 
 		this.isDeaf = isDeaf;
 
-		info("Player %s %s itself", name, isDeaf ? "deaf" : "undeaf");
-		EventManager.callEvent(new VoxyPlayerDeafStatusChangedEvent(external, isDeaf));
+		if (!name.equals(getClient().getPlayer().getName())) {
+			info("Player %s %s itself", name, isDeaf ? "deaf" : "undeaf");
+			EventManager.callEvent(new VoxyPlayerDeafStatusChangedEvent(external, isDeaf));
+		}
 	}
 
 	/**

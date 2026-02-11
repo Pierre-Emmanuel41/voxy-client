@@ -8,14 +8,14 @@ import fr.pederobien.messenger.impl.Messenger;
 import fr.pederobien.messenger.impl.client.ProtocolClientConfig;
 import fr.pederobien.messenger.interfaces.client.IProtocolClient;
 import fr.pederobien.voxy.client.impl.VoxyClient;
-import fr.pederobien.voxy.client.interfaces.ISoundApi;
+import fr.pederobien.voxy.client.interfaces.IVoxySoundApi;
 import fr.pederobien.voxy.client.interfaces.IVoxyClient;
 import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
 
 public class VoxyClientImpl {
 	private final ProtocolClientConfig<IEthernetEndPoint> config;
 	private final IProtocolClient client;
-	private final ISoundApi soundApi;
+	private final IVoxySoundApi soundApi;
 	private final VoxyMainPlayerImpl player;
 	private final RoomListImpl rooms;
 	private final ServerNotifier notifier;
@@ -31,7 +31,7 @@ public class VoxyClientImpl {
 	 * @param port     The server's port number.
 	 * @param soundApi The API to use to access the microphone and the speakers.
 	 */
-	protected VoxyClientImpl(String name, String address, int port, ISoundApi soundApi) {
+	protected VoxyClientImpl(String name, String address, int port, IVoxySoundApi soundApi) {
 		IEthernetEndPoint endPoint = new EthernetEndPoint(address, port);
 		config = Messenger.createClientConfig(VoxyProtocolManager.instance(), name, endPoint);
 		this.soundApi = soundApi;
@@ -137,7 +137,7 @@ public class VoxyClientImpl {
 	/**
 	 * @return The sound API to access the microphone and the speakers.
 	 */
-	public ISoundApi getSoundApi() {
+	public IVoxySoundApi getSoundApi() {
 		return soundApi;
 	}
 }

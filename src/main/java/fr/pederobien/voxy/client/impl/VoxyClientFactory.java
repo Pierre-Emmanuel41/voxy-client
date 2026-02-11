@@ -1,7 +1,7 @@
 package fr.pederobien.voxy.client.impl;
 
 import fr.pederobien.voxy.client.impl.internal.Factory;
-import fr.pederobien.voxy.client.interfaces.ISoundApi;
+import fr.pederobien.voxy.client.interfaces.IVoxySoundApi;
 import fr.pederobien.voxy.client.interfaces.IVoxyClient;
 
 public class VoxyClientFactory {
@@ -15,7 +15,7 @@ public class VoxyClientFactory {
 	 * @param port     The server's port number.
 	 * @param soundApi The API to use to access the microphone and the speakers.
 	 */
-	public static final IVoxyClient create(String name, String address, int port, ISoundApi soundApi) {
+	public static final IVoxyClient create(String name, String address, int port, IVoxySoundApi soundApi) {
 		return Factory.createClientImpl(name, address, port, soundApi).getExternal();
 	}
 }

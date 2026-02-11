@@ -25,7 +25,7 @@ import fr.pederobien.voxy.common.impl.VoxyErrors;
 import fr.pederobien.voxy.common.impl.VoxyIdentifiers;
 import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
 import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
-import fr.pederobien.voxy.common.impl.requests.PlayerSpeakRequest;
+import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamContentRequest;
 
 public class VocalClient implements IEventListener {
 	private final VoxyMainPlayerImpl player;
@@ -66,7 +66,7 @@ public class VocalClient implements IEventListener {
 
 		// Registering event handler
 		config.addRequestHandler(VoxyIdentifiers.PLAYER_PROPERTIES, this::onPlayerProperties);
-		config.addRequestHandler(VoxyIdentifiers.PLAYER_SPEAK, this::onPlayerSpeak);
+		config.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_CONTENT, this::onPlayerSpeak);
 
 		client = Messenger.createUdpClient(config);
 
@@ -93,7 +93,10 @@ public class VocalClient implements IEventListener {
 	 */
 	public void dispose() {
 		soundManager.dispose();
-		client.dispose();
+
+		// Client disposed even if not connected to a room's vocal server
+		if (client != null)
+			client.dispose();
 	}
 
 	/**
@@ -135,16 +138,19 @@ public class VocalClient implements IEventListener {
 		if (event.getPlayer() != player.getExternal())
 			return;
 
-		send(VoxyIdentifiers.PLAYER_SPEAK, new PlayerSpeakRequest(player.getName(), event.getSample(), event.getAlgorithm()));
+		send(VoxyIdentifiers.PLAYER_AUDIO_STREAM_CONTENT, new PlayerAudioStreamContentRequest(player.getName(), event.getSample(), event.getAlgorithm()));
 	}
 
 	@EventHandler
 	private void onConnectionLost(ProtocolConnectionLostEvent event) {
-		if (event.getConnection() != client.getConnection())
+		if (client == null || event.getConnection() != client.getConnection())
 			return;
 
 		// Used by the isConnected method
 		room = null;
+
+		// If player was speaking then do not need to get microphone data anymore
+		soundManager.setMute(true);
 	}
 
 	/**
@@ -172,16 +178,13 @@ public class VocalClient implements IEventListener {
 	 * @param payload    The payload sent by the server to get player properties.
 	 */
 	private void onPlayerSpeak(IProtocolConnection connection, int messageID, Object payload) {
-		if (!(payload instanceof PlayerSpeakRequest request))
+		if (!(payload instanceof PlayerAudioStreamContentRequest request))
 			return;
 
 		debug("Server notified that %s is speaking", request.getName());
 		String name = request.getName();
 		byte algorithm = request.getAlgorithm();
-		float left = request.getLeft();
-		float right = request.getRight();
-		float global = request.getGlobal();
-		soundManager.onPlayerSpeak(name, request.getSample(), algorithm, left, right, global);
+		soundManager.onPlayerSpeak(name, request.getSample(), algorithm);
 	}
 
 	/**

@@ -9,10 +9,10 @@ import fr.pederobien.voxy.client.event.VoxyMicrophoneCloseFailureEvent;
 import fr.pederobien.voxy.client.event.VoxyMicrophoneOpenFailureEvent;
 import fr.pederobien.voxy.client.event.VoxySpeakersCloseFailureEvent;
 import fr.pederobien.voxy.client.event.VoxySpeakersOpenFailureEvent;
-import fr.pederobien.voxy.client.interfaces.ISoundApi;
+import fr.pederobien.voxy.client.interfaces.IVoxySoundApi;
 
 public class SoundApiManager extends ClientElement {
-	private final ISoundApi soundApi;
+	private final IVoxySoundApi soundApi;
 	private SoundApiManagerState notInitialized;
 	private SoundApiManagerState initialized;
 	private SoundApiManagerState current;
@@ -73,12 +73,9 @@ public class SoundApiManager extends ClientElement {
 	 * @param name      The player's name associated to this audio sample.
 	 * @param sample    The bytes array that contains the audio sample.
 	 * @param algorithm The algorithm used to compress the audio sample.
-	 * @param left      The volume on the left side.
-	 * @param right     The volume on the right side.
-	 * @param global    The global volume on both sides.
 	 */
-	public void onPlayerSpeak(String name, byte[] sample, byte algorithm, float left, float right, float global) {
-		current.onPlayerSpeak(name, sample, algorithm, left, right, global);
+	public void onPlayerSpeak(String name, byte[] sample, byte algorithm) {
+		current.onPlayerSpeak(name, sample, algorithm);
 	}
 
 	/**
@@ -125,11 +122,8 @@ public class SoundApiManager extends ClientElement {
 		 * @param name      The player's name associated to this audio sample.
 		 * @param sample    The bytes array that contains the audio sample.
 		 * @param algorithm The algorithm used to compress the audio sample.
-		 * @param left      The volume on the left side.
-		 * @param right     The volume on the right side.
-		 * @param global    The global volume on both sides.
 		 */
-		protected abstract void onPlayerSpeak(String name, byte[] sample, byte algorithm, float left, float right, float global);
+		protected abstract void onPlayerSpeak(String name, byte[] sample, byte algorithm);
 	}
 
 	private class NotInitializedState extends SoundApiManagerState {
@@ -155,7 +149,7 @@ public class SoundApiManager extends ClientElement {
 		}
 
 		@Override
-		protected void onPlayerSpeak(String name, byte[] sample, byte algorithm, float left, float right, float global) {
+		protected void onPlayerSpeak(String name, byte[] sample, byte algorithm) {
 			// Do nothing
 		}
 	}
@@ -209,12 +203,15 @@ public class SoundApiManager extends ClientElement {
 		}
 
 		@Override
-		protected void onPlayerSpeak(String name, byte[] sample, byte algorithm, float left, float right, float global) {
-			byte[] uncompressed = sample;
+		protected void onPlayerSpeak(String name, byte[] sample, byte algorithm) {
+			byte[] uncompressed;
 
-			// TODO: Uncompress audio sample here.
+			switch (algorithm) {
+			default:
+				uncompressed = sample;
+			}
 
-			soundApi.getSpeakers().write(new VoxySample(name, uncompressed, left, right, global));
+			soundApi.getSpeakers().write(name, uncompressed);
 		}
 
 		/**

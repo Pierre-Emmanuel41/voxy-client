@@ -81,9 +81,6 @@ public class VoxyMainPlayerImpl extends ClientElement {
 
 		debug("Player %s required to %s itself", this, isDeaf ? "deaf" : "undeaf");
 
-		// Updating internal deaf status
-		setDeaf(isDeaf);
-
 		getClient().getNotifier().sendPlayerDeafStatusChanged(name, isDeaf);
 	}
 
@@ -122,7 +119,7 @@ public class VoxyMainPlayerImpl extends ClientElement {
 	 * 
 	 * @param isDeaf True if the player is deaf, false otherwise.
 	 */
-	private void setDeaf(boolean isDeaf) {
+	public void setDeaf(boolean isDeaf) {
 		// Updating player's deaf status
 		this.isDeaf = isDeaf;
 

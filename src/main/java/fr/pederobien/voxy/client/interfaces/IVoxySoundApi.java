@@ -1,6 +1,6 @@
 package fr.pederobien.voxy.client.interfaces;
 
-public interface ISoundApi {
+public interface IVoxySoundApi {
 
 	/**
 	 * Initialize the sound api to have access to the microphone and speakers. An exception is thrown if the API could not be

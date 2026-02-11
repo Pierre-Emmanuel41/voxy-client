@@ -15,7 +15,8 @@ public interface IVoxySpeakers {
 	/**
 	 * Write an audio sample in the stream of a player.
 	 * 
-	 * @param sample The audio sample to play.
+	 * @param name The name of the audio stream to update
+	 * @param data The next audio sample of the audio stream.
 	 */
-	public void write(IVoxySample sample);
+	public void write(String name, byte[] data);
 }
