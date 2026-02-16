@@ -18,5 +18,15 @@ public interface IVoxySpeakers {
 	 * @param name The name of the audio stream to update
 	 * @param data The next audio sample of the audio stream.
 	 */
-	public void write(String name, byte[] data);
+	void write(String name, byte[] data);
+
+	/**
+	 * Set the left, right and global volumes of an audio stream.
+	 * 
+	 * @param name   The name of the stream.
+	 * @param left   The volume on the left side.
+	 * @param right  The volume on the right side.
+	 * @param global The global volume on both sides.
+	 */
+	void setVolumes(String name, float left, float right, float global);
 }
