@@ -24,8 +24,8 @@ import fr.pederobien.voxy.client.event.VoxyRoomJoinedEvent;
 import fr.pederobien.voxy.common.impl.VoxyErrors;
 import fr.pederobien.voxy.common.impl.VoxyIdentifiers;
 import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
-import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamContentRequest;
+import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
 
 public class VocalClient implements IEventListener {
 	private final VoxyMainPlayerImpl player;
@@ -181,7 +181,6 @@ public class VocalClient implements IEventListener {
 		if (!(payload instanceof PlayerAudioStreamContentRequest request))
 			return;
 
-		debug("Server notified that %s is speaking", request.getName());
 		String name = request.getName();
 		byte algorithm = request.getAlgorithm();
 		soundManager.onPlayerSpeak(name, request.getSample(), algorithm);
