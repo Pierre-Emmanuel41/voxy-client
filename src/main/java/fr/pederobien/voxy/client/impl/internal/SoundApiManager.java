@@ -12,6 +12,7 @@ import fr.pederobien.voxy.client.event.VoxySpeakersOpenFailureEvent;
 import fr.pederobien.voxy.client.interfaces.IVoxySoundApi;
 
 public class SoundApiManager extends ClientElement {
+	private static final int SAMPLE_SIZE = 8820;
 	private final IVoxySoundApi soundApi;
 	private SoundApiManagerState notInitialized;
 	private SoundApiManagerState initialized;
@@ -220,7 +221,7 @@ public class SoundApiManager extends ClientElement {
 		private void fetch() {
 			try {
 				while (!isMute) {
-					byte[] sample = new byte[1200];
+					byte[] sample = new byte[SAMPLE_SIZE];
 					int written = soundApi.getMicrophone().fetch(sample);
 
 					// Case the microphone has been closed
