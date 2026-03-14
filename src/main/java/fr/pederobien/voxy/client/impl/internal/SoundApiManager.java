@@ -1,6 +1,7 @@
 package fr.pederobien.voxy.client.impl.internal;
 
 import fr.pederobien.utils.BlockingQueueTask;
+import fr.pederobien.utils.ByteWrapper;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.voxy.client.event.SoundApiInitializationErrorEvent;
 import fr.pederobien.voxy.client.event.SoundApiInitializedEvent;
@@ -227,6 +228,10 @@ public class SoundApiManager extends ClientElement {
 					// Case the microphone has been closed
 					if (isMute || written == -1)
 						break;
+
+					// Resizing to optimize band-pass
+					if (written != SAMPLE_SIZE)
+						sample = ByteWrapper.wrap(sample).extract(0, written);
 
 					// Notifying the main player is speaking
 					samplesQueue.add(sample);
