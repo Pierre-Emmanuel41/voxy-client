@@ -10,6 +10,7 @@ import fr.pederobien.voxy.client.event.VoxyClientConnectedEvent;
 import fr.pederobien.voxy.common.impl.VoxyErrors;
 import fr.pederobien.voxy.common.impl.VoxyIdentifiers;
 import fr.pederobien.voxy.common.impl.requests.AddRoomRequest;
+import fr.pederobien.voxy.common.impl.requests.JoinRoomPendingRequest;
 import fr.pederobien.voxy.common.impl.requests.JoinRoomRequest;
 import fr.pederobien.voxy.common.impl.requests.LeaveRoomRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerDeafRequest;
@@ -41,6 +42,7 @@ public class ServerRequestHandler extends ClientWrapper {
 		getConfig().addRequestHandler(VoxyIdentifiers.REMOVE_ROOM, this::onRoomRemoved);
 		getConfig().addRequestHandler(VoxyIdentifiers.RENAME_ROOM, this::onRoomRenamed);
 		getConfig().addRequestHandler(VoxyIdentifiers.PLAYER_PROPERTIES, this::onPlayerProperties);
+		getConfig().addRequestHandler(VoxyIdentifiers.JOIN_ROOM_PENDING, this::onPlayerJoinedRoomPending);
 		getConfig().addRequestHandler(VoxyIdentifiers.JOIN_ROOM, this::onPlayerJoinedRoom);
 		getConfig().addRequestHandler(VoxyIdentifiers.LEAVE_ROOM, this::onPlayerLeftRoom);
 		getConfig().addRequestHandler(VoxyIdentifiers.PLAYER_MUTE, this::onPlayerMuteStatusChanged);
@@ -108,6 +110,24 @@ public class ServerRequestHandler extends ClientWrapper {
 		VoxyRoomImpl room = getRooms().getByName(request.getOldName());
 		if (room != null)
 			room.setName(request.getNewName());
+	}
+
+	/**
+	 * Event handler: Method called when the server notify the client that a player joined the pending queue of a room.
+	 *
+	 * @param connection The connection with the server.
+	 * @param messageID  The server's message identifier.
+	 * @param payload    The object that gather properties about the room and the player.
+	 */
+	private void onPlayerJoinedRoomPending(IProtocolConnection connection, int messageID, Object payload) {
+		if (!isEnabled || !(payload instanceof JoinRoomPendingRequest request))
+			return;
+
+		debug("Receiving request that player %s joined the pending queue of room %s", request.getPlayerName(), request.getRoomName());
+		VoxyRoomImpl room = getRooms().getByName(request.getRoomName());
+
+		if (room != null)
+			getPlayer().getVocalClient().connect(room);
 	}
 
 	/**

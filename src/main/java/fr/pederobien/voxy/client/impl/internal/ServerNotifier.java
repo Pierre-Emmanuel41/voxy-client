@@ -87,20 +87,7 @@ public class ServerNotifier extends ClientWrapper {
 
 		JoinRoomRequest payload = new JoinRoomRequest(name, getPlayer().getName(), getPlayer().isMute(), getPlayer().isDeaf());
 		IRequestMessage request = getRequest(VoxyIdentifiers.JOIN_ROOM, payload);
-		request.setCallback(args -> {
-			if (args.isTimeout() || args.isConnectionLost()) {
-				info("A timeout occured or the connection has been lost");
-				EventManager.callEvent(new VoxyRoomJoinFailureEvent(name));
-			} else {
-				IRequest response = getConfig().parse(args.response());
-				if (response == null || response.getError() != VoxyErrors.NO_ERROR) {
-					warning("The server denied the request: %s", response.getError().getMessage());
-					EventManager.callEvent(new VoxyRoomJoinFailureEvent(name));
-				} else {
-					getPlayer().getVocalClient().connect(client.getRooms().getByName(name));
-				}
-			}
-		});
+		request.setCallback(args -> accept(args, new VoxyRoomJoinFailureEvent(name)));
 
 		send(request);
 	}

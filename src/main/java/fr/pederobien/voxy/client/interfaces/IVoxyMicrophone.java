@@ -13,10 +13,11 @@ public interface IVoxyMicrophone {
 	void close() throws Exception;
 
 	/**
-	 * Blocks until data are available to be sent to the remote. If the microphone is closed while waiting, the method shall returns a
-	 * null bytes array.
+	 * Blocks until data are available to be sent to the remote. If the microphone is closed while waiting, the method shall return
+	 * -1.
 	 * 
-	 * @return The bytes array to send to the server.
+	 * @param data The bytes array to update with the microphone audio stream.
+	 * @return The number of bytes written in the array, -1 if an exception occurred while waiting.
 	 */
-	byte[] fetch() throws Exception;
+	int fetch(byte[] data) throws Exception;
 }

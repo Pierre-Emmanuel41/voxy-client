@@ -220,10 +220,11 @@ public class SoundApiManager extends ClientElement {
 		private void fetch() {
 			try {
 				while (!isMute) {
-					byte[] sample = soundApi.getMicrophone().fetch();
+					byte[] sample = new byte[1200];
+					int written = soundApi.getMicrophone().fetch(sample);
 
 					// Case the microphone has been closed
-					if (isMute || sample == null)
+					if (isMute || written == -1)
 						break;
 
 					// Notifying the main player is speaking
