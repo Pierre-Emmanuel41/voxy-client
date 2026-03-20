@@ -1,6 +1,5 @@
 package fr.pederobien.voxy.client.impl.internal;
 
-import fr.pederobien.utils.BlockingQueueTask;
 import fr.pederobien.utils.ByteWrapper;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.voxy.client.event.SoundApiInitializationErrorEvent;
@@ -30,13 +29,13 @@ public class SoundApiManager extends ClientElement {
 		soundApi = client.getSoundApi();
 		notInitialized = new NotInitializedState();
 		initialized = new InitializedState();
-		setState(notInitialized);
+		current = notInitialized;
 
 		try {
 			debug("Initializing sound API");
 			soundApi.initialize();
 			debug("Sound API initialized successfully");
-			setState(initialized);
+			current = initialized;
 			EventManager.callEvent(new SoundApiInitializedEvent());
 		} catch (Exception e) {
 			error("An issue occurred while initializing sound API: %s", e.getMessage());
@@ -80,24 +79,7 @@ public class SoundApiManager extends ClientElement {
 		current.onPlayerSpeak(name, sample, algorithm);
 	}
 
-	/**
-	 * Set the current state of the sound API manager.
-	 * 
-	 * @param state The current state of the manager.
-	 */
-	private void setState(SoundApiManagerState state) {
-		current = state;
-		state.setEnabled(true);
-	}
-
 	private abstract class SoundApiManagerState {
-
-		/**
-		 * Set if this state is enabled.
-		 * 
-		 * @param isEnabled True if this state is enabled, false otherwise.
-		 */
-		protected abstract void setEnabled(boolean isEnabled);
 
 		/**
 		 * Free the resources used by the sound API.
@@ -131,11 +113,6 @@ public class SoundApiManager extends ClientElement {
 	private class NotInitializedState extends SoundApiManagerState {
 
 		@Override
-		protected void setEnabled(boolean isEnabled) {
-			// Do nothing
-		}
-
-		@Override
 		protected void dispose() {
 			// Do nothing
 		}
@@ -157,20 +134,13 @@ public class SoundApiManager extends ClientElement {
 	}
 
 	private class InitializedState extends SoundApiManagerState {
-		private final BlockingQueueTask<byte[]> samplesQueue;
 		private boolean isMute;
 		private boolean isDeaf;
 		private Thread fetcher;
 
 		public InitializedState() {
-			samplesQueue = new BlockingQueueTask<byte[]>("PlayerSpeakingNotifier", this::notifyPlayerSpeaking);
 			isMute = true;
 			isDeaf = true;
-		}
-
-		@Override
-		protected void setEnabled(boolean isEnabled) {
-			samplesQueue.start();
 		}
 
 		@Override
@@ -233,25 +203,16 @@ public class SoundApiManager extends ClientElement {
 					if (written != SAMPLE_SIZE)
 						sample = ByteWrapper.wrap(sample).extract(0, written);
 
-					// Notifying the main player is speaking
-					samplesQueue.add(sample);
+					// TODO: Compress audio sample here
+					byte[] compressed = sample;
+
+					// Notifying player is speaking
+					EventManager.callEvent(new VoxyMainPlayerSpeakingEvent(getClient().getPlayer().getExternal(), compressed, (byte) 0));
 				}
 			} catch (Exception e) {
 				error("An error occurred while fetching data from the microphone: %s", e.getMessage());
 				closeMicrophone();
 			}
-		}
-
-		/**
-		 * Method that fire a VoxyMainPlayerSpeakingEvent to avoid latency while fetching data from the microphone.
-		 * 
-		 * @param sample The audio sample fetched from the microphone.
-		 */
-		private void notifyPlayerSpeaking(byte[] sample) {
-			byte[] compressed = sample;
-			// TODO: Compress audio sample here
-
-			EventManager.callEvent(new VoxyMainPlayerSpeakingEvent(getClient().getPlayer().getExternal(), compressed, (byte) 0));
 		}
 
 		/**
@@ -261,7 +222,8 @@ public class SoundApiManager extends ClientElement {
 			debug("Opening microphone");
 			try {
 				soundApi.getMicrophone().open();
-				fetcher = new Thread(this::fetch, "fetcher");
+
+				fetcher = new Thread(this::fetch, "MicrophoneDataSender");
 				fetcher.start();
 			} catch (Exception e) {
 				error("An exception occurred while opening the microphone: %s", e.getMessage());
