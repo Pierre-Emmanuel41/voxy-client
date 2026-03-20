@@ -87,6 +87,20 @@ public class PlayerListImpl extends ClientElement {
 	}
 
 	/**
+	 * Removes all players registered in this list.
+	 */
+	public void clear() {
+		List<VoxyPlayerImpl> copy = new ArrayList<VoxyPlayerImpl>(players);
+
+		synchronized (lock) {
+			players.clear();
+		}
+
+		for (VoxyPlayerImpl player : copy)
+			EventManager.callEvent(new VoxyRoomLeftEvent(roomImpl.getExternal(), player.getExternal()));
+	}
+
+	/**
 	 * @return The players list to use externally.
 	 */
 	public IPlayerList getExternal() {

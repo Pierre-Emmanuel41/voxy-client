@@ -124,6 +124,22 @@ public class RoomListImpl extends ClientElement {
 	}
 
 	/**
+	 * Removes all the rooms registered in the underlying list.
+	 */
+	public void clear() {
+		List<VoxyRoomImpl> copy = new ArrayList<VoxyRoomImpl>(rooms);
+
+		synchronized (lock) {
+			rooms.clear();
+		}
+
+		for (VoxyRoomImpl room : copy) {
+			room.getPlayers().clear();
+			EventManager.callEvent(new VoxyRoomRemovedEvent(room.getExternal()));
+		}
+	}
+
+	/**
 	 * @return The rooms list to use externally.
 	 */
 	public IRoomList getExternal() {

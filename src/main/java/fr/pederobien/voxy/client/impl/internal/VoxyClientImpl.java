@@ -4,15 +4,19 @@ import fr.pederobien.communication.impl.EthernetEndPoint;
 import fr.pederobien.communication.impl.layer.AesSafeLayerInitializer;
 import fr.pederobien.communication.interfaces.IEthernetEndPoint;
 import fr.pederobien.communication.testing.tools.SimpleCertificate;
+import fr.pederobien.messenger.event.ProtocolConnectionLostEvent;
 import fr.pederobien.messenger.impl.Messenger;
 import fr.pederobien.messenger.impl.client.ProtocolClientConfig;
 import fr.pederobien.messenger.interfaces.client.IProtocolClient;
+import fr.pederobien.utils.event.EventHandler;
+import fr.pederobien.utils.event.EventManager;
+import fr.pederobien.utils.event.IEventListener;
 import fr.pederobien.voxy.client.impl.VoxyClient;
-import fr.pederobien.voxy.client.interfaces.IVoxySoundApi;
 import fr.pederobien.voxy.client.interfaces.IVoxyClient;
+import fr.pederobien.voxy.client.interfaces.IVoxySoundApi;
 import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
 
-public class VoxyClientImpl {
+public class VoxyClientImpl implements IEventListener {
 	private final ProtocolClientConfig<IEthernetEndPoint> config;
 	private final IProtocolClient client;
 	private final IVoxySoundApi soundApi;
@@ -48,6 +52,7 @@ public class VoxyClientImpl {
 		handler.setEnabled(true);
 
 		external = new VoxyClient(this);
+		EventManager.registerListener(this);
 	}
 
 	@Override
@@ -114,6 +119,13 @@ public class VoxyClientImpl {
 	}
 
 	/**
+	 * @return The sound API to access the microphone and the speakers.
+	 */
+	public IVoxySoundApi getSoundApi() {
+		return soundApi;
+	}
+
+	/**
 	 * @return The object that sends request to the server.
 	 */
 	public ServerNotifier getNotifier() {
@@ -134,10 +146,12 @@ public class VoxyClientImpl {
 		return config;
 	}
 
-	/**
-	 * @return The sound API to access the microphone and the speakers.
-	 */
-	public IVoxySoundApi getSoundApi() {
-		return soundApi;
+	@EventHandler
+	private void onConnectionLost(ProtocolConnectionLostEvent event) {
+		if (event.getConnection() != client.getConnection())
+			return;
+
+		rooms.clear();
+		player.getVocalClient().disconnect();
 	}
 }
