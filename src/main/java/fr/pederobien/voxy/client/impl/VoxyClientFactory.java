@@ -24,7 +24,8 @@ public class VoxyClientFactory {
 
 	/**
 	 * Creates a client to communicate with a voxy server. If the sound API could not be initialized successfully, a
-	 * SoundApiInitializationErrorEvent is thrown otherwise a SoundApiInitializedEvent is thrown.
+	 * SoundApiInitializationErrorEvent is thrown otherwise a SoundApiInitializedEvent is thrown. The certificate used to
+	 * sign/authenticate requests is weak, it is recommended to use this method for development only.
 	 *
 	 * @param name     The player's name.
 	 * @param address  The server's address.
