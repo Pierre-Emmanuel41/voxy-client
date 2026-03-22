@@ -3,7 +3,7 @@ package fr.pederobien.voxy.client.impl.internal;
 import fr.pederobien.communication.impl.EthernetEndPoint;
 import fr.pederobien.communication.impl.layer.AesSafeLayerInitializer;
 import fr.pederobien.communication.interfaces.IEthernetEndPoint;
-import fr.pederobien.communication.testing.tools.SimpleCertificate;
+import fr.pederobien.communication.interfaces.layer.ICertificate;
 import fr.pederobien.messenger.event.ProtocolConnectionLostEvent;
 import fr.pederobien.messenger.impl.Messenger;
 import fr.pederobien.messenger.impl.client.ProtocolClientConfig;
@@ -18,6 +18,7 @@ import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
 
 public class VoxyClientImpl implements IEventListener {
 	private final ProtocolClientConfig<IEthernetEndPoint> config;
+	private final ICertificate certificate;
 	private final IProtocolClient client;
 	private final IVoxySoundApi soundApi;
 	private final VoxyMainPlayerImpl player;
@@ -30,19 +31,19 @@ public class VoxyClientImpl implements IEventListener {
 	/**
 	 * Creates the implementation of a voxy client.
 	 * 
-	 * @param name     The player's name.
-	 * @param address  The server's address.
-	 * @param port     The server's port number.
-	 * @param soundApi The API to use to access the microphone and the speakers.
+	 * @param name        The player's name.
+	 * @param address     The server's address.
+	 * @param port        The server's port number.
+	 * @param certificate The certificate to use to sign / authenticate requests.
+	 * @param soundApi    The API to use to access the microphone and the speakers.
 	 */
-	protected VoxyClientImpl(String name, String address, int port, IVoxySoundApi soundApi) {
-		IEthernetEndPoint endPoint = new EthernetEndPoint(address, port);
-		config = Messenger.createClientConfig(VoxyProtocolManager.instance(), name, endPoint);
+	protected VoxyClientImpl(String name, String address, int port, ICertificate certificate, IVoxySoundApi soundApi) {
+		this.certificate = certificate;
 		this.soundApi = soundApi;
 
-		// TODO: Replace SimpleCertificate by a proper one
-		config.setLayerInitializer(() -> new AesSafeLayerInitializer(new SimpleCertificate()));
-
+		IEthernetEndPoint endPoint = new EthernetEndPoint(address, port);
+		config = Messenger.createClientConfig(VoxyProtocolManager.instance(), name, endPoint);
+		config.setLayerInitializer(() -> new AesSafeLayerInitializer(certificate));
 		client = Messenger.createTcpClient(config);
 
 		player = new VoxyMainPlayerImpl(this, name);
@@ -109,6 +110,13 @@ public class VoxyClientImpl implements IEventListener {
 	 */
 	public String getAddress() {
 		return config.getEndPoint().getAddress();
+	}
+
+	/**
+	 * @return The certificate to use to sign / authenticate requests.
+	 */
+	public ICertificate getCertificate() {
+		return certificate;
 	}
 
 	/**

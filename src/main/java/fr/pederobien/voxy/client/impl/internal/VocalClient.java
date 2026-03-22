@@ -4,7 +4,6 @@ import fr.pederobien.communication.impl.EthernetEndPoint;
 import fr.pederobien.communication.impl.layer.AesSafeLayerInitializer;
 import fr.pederobien.communication.interfaces.IEthernetEndPoint;
 import fr.pederobien.communication.interfaces.connection.ICallback.CallbackArgs;
-import fr.pederobien.communication.testing.tools.SimpleCertificate;
 import fr.pederobien.messenger.event.ProtocolConnectionLostEvent;
 import fr.pederobien.messenger.impl.Messenger;
 import fr.pederobien.messenger.impl.client.ProtocolClientConfig;
@@ -60,9 +59,7 @@ public class VocalClient implements IEventListener {
 		IEthernetEndPoint endPoint = new EthernetEndPoint(player.getClient().getAddress(), room.getPort());
 		config = Messenger.createClientConfig(VoxyProtocolManager.instance(), player.getName() + " - VocalClient", endPoint);
 		config.setAutomaticReconnection(false);
-
-		// TODO: Replace SimpleCertificate by a proper one
-		config.setLayerInitializer(() -> new AesSafeLayerInitializer(new SimpleCertificate()));
+		config.setLayerInitializer(() -> new AesSafeLayerInitializer(player.getClient().getCertificate()));
 
 		// Registering event handler
 		config.addRequestHandler(VoxyIdentifiers.PLAYER_PROPERTIES, this::onPlayerProperties);
@@ -146,11 +143,7 @@ public class VocalClient implements IEventListener {
 		if (client == null || event.getConnection() != client.getConnection())
 			return;
 
-		// Used by the isConnected method
-		room = null;
-
-		// If player was speaking then do not need to get microphone data anymore
-		soundManager.setMute(true);
+		disconnect();
 	}
 
 	/**
