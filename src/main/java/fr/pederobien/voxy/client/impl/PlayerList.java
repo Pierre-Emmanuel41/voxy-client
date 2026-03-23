@@ -27,6 +27,11 @@ public class PlayerList implements IPlayerList {
 	}
 
 	@Override
+	public int size() {
+		return impl.size();
+	}
+
+	@Override
 	public List<IVoxyPlayer> toList() {
 		return impl.toList();
 	}

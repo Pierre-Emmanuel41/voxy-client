@@ -100,6 +100,30 @@ public class RoomListImpl extends ClientElement {
 	}
 
 	/**
+	 * Get the room in which the player associated to the given name is.
+	 * 
+	 * @param name The name of the player.
+	 * 
+	 * @return The room in which the player is, null if the player is not registered in a room.
+	 */
+	public VoxyRoomImpl getRoomByPlayerName(String name) {
+		synchronized (lock) {
+			for (VoxyRoomImpl room : rooms)
+				if (room.getPlayers().getByName(name) != null)
+					return room;
+		}
+
+		return null;
+	}
+
+	/**
+	 * @return The number of rooms in the underlying list.
+	 */
+	public int size() {
+		return rooms.size();
+	}
+
+	/**
 	 * @return The list of rooms to use externally.
 	 */
 	public List<IVoxyRoom> toList() {

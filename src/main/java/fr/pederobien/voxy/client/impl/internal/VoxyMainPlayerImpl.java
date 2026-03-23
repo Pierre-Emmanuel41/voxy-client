@@ -81,6 +81,7 @@ public class VoxyMainPlayerImpl extends ClientElement {
 
 		debug("Player %s required to %s itself", this, isDeaf ? "deaf" : "undeaf");
 
+		vocalClient.setDeaf(isDeaf);
 		getClient().getNotifier().sendPlayerDeafStatusChanged(name, isDeaf);
 	}
 

@@ -31,6 +31,20 @@ public interface IRoomList {
 	Optional<IVoxyRoom> get(String name);
 
 	/**
+	 * Get the room in which the player associated to the given name is.
+	 * 
+	 * @param name The name of the player.
+	 * 
+	 * @return An optional containing the room in which the player is, an empty optional if the player is not registered in a room.
+	 */
+	Optional<IVoxyRoom> getRoomByPlayerName(String name);
+
+	/**
+	 * @return The number of rooms in the underlying list.
+	 */
+	int size();
+
+	/**
 	 * @return An unmodifiable list containing the rooms registered in this list.
 	 */
 	List<IVoxyRoom> toList();

@@ -72,6 +72,7 @@ public class VoxyClientImpl implements IEventListener {
 	 * Close the connection with the server.
 	 */
 	public void disconnect() {
+		rooms.clear();
 		player.getVocalClient().disconnect();
 		client.disconnect();
 	}
