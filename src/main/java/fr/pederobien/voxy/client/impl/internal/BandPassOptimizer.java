@@ -57,7 +57,7 @@ public class BandPassOptimizer {
 	 */
 	private static byte[] compressWithGZip(byte[] data) {
 		try {
-			Deflater deflater = new Deflater();
+			Deflater deflater = new Deflater(Deflater.BEST_COMPRESSION);
 			deflater.setInput(data);
 			deflater.finish();
 
