@@ -176,12 +176,9 @@ public class SoundApiManager extends ClientElement {
 
 		@Override
 		protected void onPlayerSpeak(String name, byte[] sample, byte algorithm) {
-			byte[] uncompressed;
-
-			switch (algorithm) {
-			default:
-				uncompressed = sample;
-			}
+			byte[] uncompressed = BandPassOptimizer.uncompress(sample, algorithm);
+			if (uncompressed == null)
+				return;
 
 			soundApi.getSpeakers().write(name, uncompressed);
 		}
@@ -190,6 +187,7 @@ public class SoundApiManager extends ClientElement {
 		 * Fetch data from the microphone and throws a PlayerSpeakingEvent accordingly.
 		 */
 		private void fetch() {
+			byte algorithm = BandPassOptimizer.GZIP;
 			try {
 				while (!isMute) {
 					byte[] sample = new byte[SAMPLE_SIZE];
@@ -203,11 +201,13 @@ public class SoundApiManager extends ClientElement {
 					if (written != SAMPLE_SIZE)
 						sample = ByteWrapper.wrap(sample).extract(0, written);
 
-					// TODO: Compress audio sample here
-					byte[] compressed = sample;
+					// Compressing the raw bytes array
+					byte[] compressed = BandPassOptimizer.compress(sample, algorithm);
+					if (compressed == null)
+						continue;
 
 					// Notifying player is speaking
-					EventManager.callEvent(new VoxyMainPlayerSpeakingEvent(getClient().getPlayer().getExternal(), compressed, (byte) 0));
+					EventManager.callEvent(new VoxyMainPlayerSpeakingEvent(getClient().getPlayer().getExternal(), compressed, algorithm));
 				}
 			} catch (Exception e) {
 				error("An error occurred while fetching data from the microphone: %s", e.getMessage());
