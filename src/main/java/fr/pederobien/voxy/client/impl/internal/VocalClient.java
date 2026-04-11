@@ -4,6 +4,7 @@ import fr.pederobien.communication.impl.EthernetEndPoint;
 import fr.pederobien.communication.impl.layer.AesSafeLayerInitializer;
 import fr.pederobien.communication.interfaces.IEthernetEndPoint;
 import fr.pederobien.communication.interfaces.connection.ICallback.CallbackArgs;
+import fr.pederobien.messenger.event.ProtocolClientUnstableEvent;
 import fr.pederobien.messenger.event.ProtocolConnectionLostEvent;
 import fr.pederobien.messenger.impl.Messenger;
 import fr.pederobien.messenger.impl.client.ProtocolClientConfig;
@@ -51,7 +52,7 @@ public class VocalClient implements IEventListener {
 	 */
 	public void connect(VoxyRoomImpl room) {
 		if (isConnected())
-			return;
+			disconnect();
 
 		this.room = room;
 
@@ -141,6 +142,14 @@ public class VocalClient implements IEventListener {
 	@EventHandler
 	private void onConnectionLost(ProtocolConnectionLostEvent event) {
 		if (client == null || event.getConnection() != client.getConnection())
+			return;
+
+		disconnect();
+	}
+
+	@EventHandler
+	private void onUnstableClientEvent(ProtocolClientUnstableEvent event) {
+		if (client == null || event.getClient() != client)
 			return;
 
 		disconnect();
