@@ -25,6 +25,7 @@ import fr.pederobien.voxy.common.impl.VoxyErrors;
 import fr.pederobien.voxy.common.impl.VoxyIdentifiers;
 import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
 import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamContentRequest;
+import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamVolumesRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
 
 public class VocalClient implements IEventListener {
@@ -65,6 +66,7 @@ public class VocalClient implements IEventListener {
 		// Registering event handler
 		config.addRequestHandler(VoxyIdentifiers.PLAYER_PROPERTIES, this::onPlayerProperties);
 		config.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_CONTENT, this::onPlayerSpeak);
+		config.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_VOLUMES, this::onAudioVolumesChanged);
 
 		client = Messenger.createUdpClient(config);
 
@@ -177,15 +179,29 @@ public class VocalClient implements IEventListener {
 	 *
 	 * @param connection The connection with the server.
 	 * @param messageID  The server's message identifier.
-	 * @param payload    The payload sent by the server to get player properties.
+	 * @param payload    The payload that contains the name of the speaking player and the audio content.
 	 */
 	private void onPlayerSpeak(IProtocolConnection connection, int messageID, Object payload) {
 		if (!(payload instanceof PlayerAudioStreamContentRequest request))
 			return;
 
-		String name = request.getName();
-		byte algorithm = request.getAlgorithm();
-		soundManager.onPlayerSpeak(name, request.getSample(), algorithm);
+		soundManager.write(request.getName(), request.getSample(), request.getAlgorithm());
+	}
+
+	/**
+	 * Event handler: Method called when the server notify this client that the volumes level for a player has changed.
+	 *
+	 * @param connection The connection with the server.
+	 * @param messageID  The server's message identifier.
+	 * @param payload    The payload that contains the name of the speaking player and the new audio volumes.
+	 */
+	private void onAudioVolumesChanged(IProtocolConnection connection, int messageID, Object payload) {
+		if (!(payload instanceof PlayerAudioStreamVolumesRequest request))
+			return;
+
+		String format = "[%s] - %s's audio volumes changed: left=%s, right=%s, global=%s";
+		debug(format, player.getName(), request.getName(), request.getLeft(), request.getRight(), request.getGlobal());
+		soundManager.setVolumes(request.getName(), request.getLeft(), request.getRight(), request.getGlobal());
 	}
 
 	/**

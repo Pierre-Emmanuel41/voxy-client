@@ -75,8 +75,20 @@ public class SoundApiManager extends ClientElement {
 	 * @param sample    The bytes array that contains the audio sample.
 	 * @param algorithm The algorithm used to compress the audio sample.
 	 */
-	public void onPlayerSpeak(String name, byte[] sample, byte algorithm) {
-		current.onPlayerSpeak(name, sample, algorithm);
+	public void write(String name, byte[] sample, byte algorithm) {
+		current.write(name, sample, algorithm);
+	}
+
+	/**
+	 * Set the left, right and global volumes of an audio stream.
+	 * 
+	 * @param name   The name of the stream.
+	 * @param left   The volume on the left side.
+	 * @param right  The volume on the right side.
+	 * @param global The global volume on both sides.
+	 */
+	public void setVolumes(String name, float left, float right, float global) {
+		current.setVolumes(name, left, right, global);
 	}
 
 	private abstract class SoundApiManagerState {
@@ -107,7 +119,17 @@ public class SoundApiManager extends ClientElement {
 		 * @param sample    The bytes array that contains the audio sample.
 		 * @param algorithm The algorithm used to compress the audio sample.
 		 */
-		protected abstract void onPlayerSpeak(String name, byte[] sample, byte algorithm);
+		protected abstract void write(String name, byte[] sample, byte algorithm);
+
+		/**
+		 * Set the left, right and global volumes of an audio stream.
+		 * 
+		 * @param name   The name of the stream.
+		 * @param left   The volume on the left side.
+		 * @param right  The volume on the right side.
+		 * @param global The global volume on both sides.
+		 */
+		protected abstract void setVolumes(String name, float left, float right, float global);
 	}
 
 	private class NotInitializedState extends SoundApiManagerState {
@@ -128,7 +150,12 @@ public class SoundApiManager extends ClientElement {
 		}
 
 		@Override
-		protected void onPlayerSpeak(String name, byte[] sample, byte algorithm) {
+		protected void write(String name, byte[] sample, byte algorithm) {
+			// Do nothing
+		}
+
+		@Override
+		protected void setVolumes(String name, float left, float right, float global) {
 			// Do nothing
 		}
 	}
@@ -175,12 +202,17 @@ public class SoundApiManager extends ClientElement {
 		}
 
 		@Override
-		protected void onPlayerSpeak(String name, byte[] sample, byte algorithm) {
+		protected void write(String name, byte[] sample, byte algorithm) {
 			byte[] uncompressed = BandPassOptimizer.uncompress(sample, algorithm);
 			if (uncompressed == null)
 				return;
 
 			soundApi.getSpeakers().write(name, uncompressed);
+		}
+
+		@Override
+		protected void setVolumes(String name, float left, float right, float global) {
+			soundApi.getSpeakers().setVolumes(name, left, right, global);
 		}
 
 		/**
