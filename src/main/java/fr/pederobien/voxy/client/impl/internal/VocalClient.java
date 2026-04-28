@@ -26,6 +26,7 @@ import fr.pederobien.voxy.common.impl.VoxyIdentifiers;
 import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
 import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamContentRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamVolumesRequest;
+import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamVolumesRequest.VolumeInfo;
 import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
 
 public class VocalClient implements IEventListener {
@@ -199,9 +200,11 @@ public class VocalClient implements IEventListener {
 		if (!(payload instanceof PlayerAudioStreamVolumesRequest request))
 			return;
 
-		String format = "[%s] - %s's audio volumes changed: left=%s, right=%s, global=%s";
-		debug(format, player.getName(), request.getName(), request.getLeft(), request.getRight(), request.getGlobal());
-		soundManager.setVolumes(request.getName(), request.getLeft(), request.getRight(), request.getGlobal());
+		for (VolumeInfo info : request.getVolumes()) {
+			String format = "[%s] - %s's audio volumes changed: left=%s, right=%s, global=%s";
+			debug(format, player.getName(), info.getName(), info.getLeft(), info.getRight(), info.getGlobal());
+			soundManager.setVolumes(info.getName(), info.getLeft(), info.getRight(), info.getGlobal());
+		}
 	}
 
 	/**
