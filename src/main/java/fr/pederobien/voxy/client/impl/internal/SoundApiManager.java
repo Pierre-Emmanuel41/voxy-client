@@ -91,6 +91,13 @@ public class SoundApiManager extends ClientElement {
 		current.setVolumes(name, left, right, global);
 	}
 
+	/**
+	 * Set to 1.0 the left, right and global volumes of each registered stream.
+	 */
+	public void resetVolumes() {
+		current.resetVolumes();
+	}
+
 	private abstract class SoundApiManagerState {
 
 		/**
@@ -130,6 +137,11 @@ public class SoundApiManager extends ClientElement {
 		 * @param global The global volume on both sides.
 		 */
 		protected abstract void setVolumes(String name, float left, float right, float global);
+
+		/**
+		 * Set to 1.0 the left, right and global volumes of each registered stream.
+		 */
+		protected abstract void resetVolumes();
 	}
 
 	private class NotInitializedState extends SoundApiManagerState {
@@ -156,6 +168,11 @@ public class SoundApiManager extends ClientElement {
 
 		@Override
 		protected void setVolumes(String name, float left, float right, float global) {
+			// Do nothing
+		}
+
+		@Override
+		protected void resetVolumes() {
 			// Do nothing
 		}
 	}
@@ -213,6 +230,11 @@ public class SoundApiManager extends ClientElement {
 		@Override
 		protected void setVolumes(String name, float left, float right, float global) {
 			soundApi.getSpeakers().setVolumes(name, left, right, global);
+		}
+
+		@Override
+		protected void resetVolumes() {
+			soundApi.getSpeakers().resetVolumes();
 		}
 
 		/**

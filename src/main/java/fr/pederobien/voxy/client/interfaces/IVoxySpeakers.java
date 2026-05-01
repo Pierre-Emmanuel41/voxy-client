@@ -29,4 +29,9 @@ public interface IVoxySpeakers {
 	 * @param global The global volume on both sides.
 	 */
 	void setVolumes(String name, float left, float right, float global);
+
+	/**
+	 * Set to 1.0 the left, right and global volumes of each registered stream.
+	 */
+	void resetVolumes();
 }

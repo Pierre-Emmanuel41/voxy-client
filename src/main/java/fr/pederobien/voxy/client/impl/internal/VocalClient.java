@@ -86,6 +86,7 @@ public class VocalClient implements IEventListener {
 		room = null;
 		setMute(true);
 		setDeaf(true);
+		soundManager.resetVolumes();
 		client.disconnect();
 	}
 
