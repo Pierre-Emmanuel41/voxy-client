@@ -202,7 +202,7 @@ public class VocalClient implements IEventListener {
 			return;
 
 		for (VolumeInfo info : request.getVolumes()) {
-			String format = "[%s] - %s's audio volumes changed: left=%s, right=%s, global=%s";
+			String format = "%s's audio volumes changed: left=%s, right=%s, global=%s";
 			debug(format, player.getName(), info.getName(), info.getLeft(), info.getRight(), info.getGlobal());
 			soundManager.setVolumes(info.getName(), info.getLeft(), info.getRight(), info.getGlobal());
 		}
