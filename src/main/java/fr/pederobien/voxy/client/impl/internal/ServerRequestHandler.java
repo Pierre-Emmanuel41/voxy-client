@@ -245,7 +245,6 @@ public class ServerRequestHandler extends ClientWrapper {
 		debug("Server requires player's properties");
 		PlayerPropertiesRequest payload = new PlayerPropertiesRequest(getPlayer().getName(), getPlayer().isMute(), getPlayer().isDeaf());
 
-		debug("Sending following payload: %s", payload);
 		IRequestMessage response = getRequest(VoxyIdentifiers.PLAYER_PROPERTIES, payload);
 		response.setCallback(args -> handlePlayerPropertiesResponse(args));
 		answer(messageID, response);

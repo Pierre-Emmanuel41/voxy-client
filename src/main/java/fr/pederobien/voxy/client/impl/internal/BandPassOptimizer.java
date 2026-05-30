@@ -74,7 +74,7 @@ public class BandPassOptimizer {
 
 			return outputStream.toByteArray();
 		} catch (Exception e) {
-			Logger.debug("An exception occurred while compressing with GZip: %s", e.getMessage());
+			Logger.error("An exception occurred while compressing with GZip: %s", e.getMessage());
 			return null;
 		}
 	}
@@ -103,7 +103,7 @@ public class BandPassOptimizer {
 
 			return outputStream.toByteArray();
 		} catch (Exception e) {
-			Logger.debug("An exception occurred while uncompressing with GZip: %s", e.getMessage());
+			Logger.error("An exception occurred while uncompressing with GZip: %s", e.getMessage());
 			return null;
 		}
 	}

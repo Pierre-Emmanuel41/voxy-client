@@ -309,7 +309,7 @@ public class VocalClient implements IEventListener {
 	 * @param args    The arguments of the message.
 	 */
 	private void debug(String format, Object... args) {
-		Logger.debug("%s - %s", client, String.format(format, args));
+		Logger.debug(3, "%s - %s", client, String.format(format, args));
 	}
 
 	/**
