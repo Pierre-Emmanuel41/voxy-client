@@ -6,6 +6,7 @@ import fr.pederobien.communication.interfaces.IEthernetEndPoint;
 import fr.pederobien.communication.interfaces.layer.ICertificate;
 import fr.pederobien.messenger.event.ProtocolConnectionLostEvent;
 import fr.pederobien.messenger.impl.Messenger;
+import fr.pederobien.messenger.impl.client.EthernetProtocolClientConfig;
 import fr.pederobien.messenger.impl.client.ProtocolClientConfig;
 import fr.pederobien.messenger.interfaces.client.IProtocolClient;
 import fr.pederobien.utils.event.EventHandler;
@@ -17,7 +18,7 @@ import fr.pederobien.voxy.client.interfaces.IVoxySoundApi;
 import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
 
 public class VoxyClientImpl implements IEventListener {
-	private final ProtocolClientConfig<IEthernetEndPoint> config;
+	private final EthernetProtocolClientConfig config;
 	private final ICertificate certificate;
 	private final IProtocolClient client;
 	private final IVoxySoundApi soundApi;
@@ -42,9 +43,9 @@ public class VoxyClientImpl implements IEventListener {
 		this.soundApi = soundApi;
 
 		IEthernetEndPoint endPoint = new EthernetEndPoint(address, port);
-		config = Messenger.createClientConfig(VoxyProtocolManager.instance(), name, endPoint);
+		config = Messenger.createEthernetProtocolClientConfig(VoxyProtocolManager.instance(), name, endPoint);
 		config.setLayerInitializer(() -> new AesSafeLayerInitializer(certificate));
-		client = Messenger.createTcpClient(config);
+		client = Messenger.createTcpProtocolClient(config);
 
 		player = new VoxyMainPlayerImpl(this, name);
 		rooms = new RoomListImpl(this);

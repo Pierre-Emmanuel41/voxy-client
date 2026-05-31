@@ -7,7 +7,7 @@ import fr.pederobien.communication.interfaces.connection.ICallback.CallbackArgs;
 import fr.pederobien.messenger.event.ProtocolClientUnstableEvent;
 import fr.pederobien.messenger.event.ProtocolConnectionLostEvent;
 import fr.pederobien.messenger.impl.Messenger;
-import fr.pederobien.messenger.impl.client.ProtocolClientConfig;
+import fr.pederobien.messenger.impl.client.EthernetProtocolClientConfig;
 import fr.pederobien.messenger.interfaces.IProtocolConnection;
 import fr.pederobien.messenger.interfaces.IRequestMessage;
 import fr.pederobien.messenger.interfaces.client.IProtocolClient;
@@ -31,7 +31,7 @@ import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
 
 public class VocalClient implements IEventListener {
 	private final VoxyMainPlayerImpl player;
-	private ProtocolClientConfig<IEthernetEndPoint> config;
+	private EthernetProtocolClientConfig config;
 	private IProtocolClient client;
 	private VoxyRoomImpl room;
 	private SoundApiManager soundManager;
@@ -60,7 +60,7 @@ public class VocalClient implements IEventListener {
 
 		// Connecting to the room's vocal server
 		IEthernetEndPoint endPoint = new EthernetEndPoint(player.getClient().getAddress(), room.getPort());
-		config = Messenger.createClientConfig(VoxyProtocolManager.instance(), player.getName() + " - VocalClient", endPoint);
+		config = Messenger.createEthernetProtocolClientConfig(VoxyProtocolManager.instance(), player.getName() + " - VocalClient", endPoint);
 		config.setAutomaticReconnection(false);
 		config.setLayerInitializer(() -> new AesSafeLayerInitializer(player.getClient().getCertificate()));
 
@@ -69,7 +69,7 @@ public class VocalClient implements IEventListener {
 		config.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_CONTENT, this::onPlayerSpeak);
 		config.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_VOLUMES, this::onAudioVolumesChanged);
 
-		client = Messenger.createUdpClient(config);
+		client = Messenger.createUdpProtocolClient(config);
 
 		debug("Connecting player %s to %s's vocal server", player.getName(), room.getName());
 		client.connect();
