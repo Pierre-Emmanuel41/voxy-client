@@ -2,6 +2,8 @@ package fr.pederobien.voxy.client.impl.internal;
 
 import fr.pederobien.communication.interfaces.connection.ICallback.CallbackArgs;
 import fr.pederobien.messenger.interfaces.IRequestMessage;
+import fr.pederobien.messenger.interfaces.client.IEthernetProtocolClientConfig;
+import fr.pederobien.messenger.interfaces.client.IProtocolClient;
 import fr.pederobien.protocol.interfaces.IRequest;
 import fr.pederobien.utils.event.Event;
 import fr.pederobien.utils.event.EventManager;
@@ -24,17 +26,19 @@ import fr.pederobien.voxy.common.impl.requests.RemoveRoomRequest;
 import fr.pederobien.voxy.common.impl.requests.RenameRoomRequest;
 
 public class ServerNotifier extends ClientWrapper {
-	private final VoxyClientImpl client;
+	private final VoxyMainPlayerImpl player;
 
 	/**
-	 * Creates a notifier associated to a client.
+	 * Creates a server notifier. This object is responsible to transmit client's request to the server.
 	 * 
-	 * @param client The implementation of a voxy client.
+	 * @param client The client to use to send requests to the server.
+	 * @param config The configuration to use to create requests / parse responses.
+	 * @param player The main player
 	 */
-	public ServerNotifier(VoxyClientImpl client) {
-		super(client.getClient(), client.getConfig());
+	public ServerNotifier(IProtocolClient client, IEthernetProtocolClientConfig config, VoxyMainPlayerImpl player) {
+		super(client, config);
 
-		this.client = client;
+		this.player = player;
 	}
 
 	/**
@@ -85,7 +89,7 @@ public class ServerNotifier extends ClientWrapper {
 	protected void sendRoomJoinRequest(String name) {
 		info("Sending a request to the server to join room %s", name);
 
-		JoinRoomRequest payload = new JoinRoomRequest(name, getPlayer().getName(), getPlayer().isMute(), getPlayer().isDeaf());
+		JoinRoomRequest payload = new JoinRoomRequest(name, player.getName(), player.isMute(), player.isDeaf());
 		IRequestMessage request = getRequest(VoxyIdentifiers.JOIN_ROOM, payload);
 		request.setCallback(args -> accept(args, new VoxyRoomJoinFailureEvent(name)));
 
@@ -101,10 +105,10 @@ public class ServerNotifier extends ClientWrapper {
 		info("Sending a request to the server to leave room %s", name);
 
 		// Disabling microphone and speakers before leaving a room
-		client.getPlayer().getVocalClient().setMute(true);
-		client.getPlayer().getVocalClient().setDeaf(true);
+		player.getVocalClient().setMute(true);
+		player.getVocalClient().setDeaf(true);
 
-		IRequestMessage request = getRequest(VoxyIdentifiers.LEAVE_ROOM, new LeaveRoomRequest(name, getPlayer().getName()));
+		IRequestMessage request = getRequest(VoxyIdentifiers.LEAVE_ROOM, new LeaveRoomRequest(name, player.getName()));
 		request.setCallback(args -> accept(args, new VoxyRoomLeaveFailureEvent(name)));
 
 		send(request);
@@ -122,14 +126,14 @@ public class ServerNotifier extends ClientWrapper {
 		info("Sending a request to the server to %s player %s", isMute ? "mute" : "unmute", name);
 
 		// Main player updated its own mute status
-		if (name.equals(getPlayer().getName())) {
+		if (name.equals(player.getName())) {
 			request = getRequest(VoxyIdentifiers.PLAYER_MUTE, new PlayerMuteRequest(name, isMute));
-			request.setCallback(args -> accept(args, new VoxyMainPlayerMuteStatusChangedEvent(getPlayer().getExternal(), isMute)));
+			request.setCallback(args -> accept(args, new VoxyMainPlayerMuteStatusChangedEvent(player.getExternal(), isMute)));
 		}
 		// Main player mutes/unmutes another player for itself
 		else {
-			request = getRequest(VoxyIdentifiers.PLAYER_MUTE_BY, new PlayerMuteByRequest(name, getPlayer().getName(), isMute));
-			request.setCallback(args -> accept(args, new VoxyPlayerMuteByFailureEvent(getPlayer().getExternal(), name, isMute)));
+			request = getRequest(VoxyIdentifiers.PLAYER_MUTE_BY, new PlayerMuteByRequest(name, player.getName(), isMute));
+			request.setCallback(args -> accept(args, new VoxyPlayerMuteByFailureEvent(player.getExternal(), name, isMute)));
 		}
 
 		send(request);
@@ -163,12 +167,5 @@ public class ServerNotifier extends ClientWrapper {
 				EventManager.callEvent(event);
 			}
 		}
-	}
-
-	/**
-	 * @return The voxy main player.
-	 */
-	private VoxyMainPlayerImpl getPlayer() {
-		return client.getPlayer();
 	}
 }

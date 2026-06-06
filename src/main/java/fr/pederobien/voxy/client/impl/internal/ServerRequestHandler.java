@@ -3,6 +3,8 @@ package fr.pederobien.voxy.client.impl.internal;
 import fr.pederobien.communication.interfaces.connection.ICallback.CallbackArgs;
 import fr.pederobien.messenger.interfaces.IProtocolConnection;
 import fr.pederobien.messenger.interfaces.IRequestMessage;
+import fr.pederobien.messenger.interfaces.client.IEthernetProtocolClientConfig;
+import fr.pederobien.messenger.interfaces.client.IProtocolClient;
 import fr.pederobien.protocol.interfaces.IRequest;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.Logger;
@@ -24,7 +26,7 @@ import fr.pederobien.voxy.common.impl.requests.ServerPropertiesRequest.PlayerInf
 import fr.pederobien.voxy.common.impl.requests.ServerPropertiesRequest.RoomInfo;
 
 public class ServerRequestHandler extends ClientWrapper {
-	private final VoxyClientImpl client;
+	private final VoxyClientImpl voxyClient;
 	private boolean isEnabled;
 
 	/**
@@ -32,10 +34,10 @@ public class ServerRequestHandler extends ClientWrapper {
 	 * 
 	 * @param client The implementation of a voxy client.
 	 */
-	public ServerRequestHandler(VoxyClientImpl client) {
-		super(client.getClient(), client.getConfig());
+	public ServerRequestHandler(IProtocolClient protocolClient, IEthernetProtocolClientConfig config, VoxyClientImpl voxyClient) {
+		super(protocolClient, config);
 
-		this.client = client;
+		this.voxyClient = voxyClient;
 
 		// Registering event handler
 		getConfig().addRequestHandler(VoxyIdentifiers.ADD_ROOM, this::onRoomAdded);
@@ -145,7 +147,7 @@ public class ServerRequestHandler extends ClientWrapper {
 		VoxyRoomImpl room = getRooms().getByName(request.getRoomName());
 
 		if (room != null)
-			room.getPlayers().add(new VoxyPlayerImpl(client, request.getPlayerName(), request.isMute(), request.isDeaf()));
+			room.getPlayers().add(new VoxyPlayerImpl(voxyClient, request.getPlayerName(), request.isMute(), request.isDeaf()));
 	}
 
 	/**
@@ -182,8 +184,8 @@ public class ServerRequestHandler extends ClientWrapper {
 
 		debug("Receiving request that the mute status of player %s has changed, isMute=%s", request.getName(), request.isMute());
 
-		if (request.getName().equals(client.getPlayer().getName()))
-			client.getPlayer().setMute(request.isMute());
+		if (request.getName().equals(voxyClient.getPlayer().getName()))
+			voxyClient.getPlayer().setMute(request.isMute());
 
 		getRooms().foreach(room -> {
 			VoxyPlayerImpl player = room.getPlayers().getByName(request.getName());
@@ -261,19 +263,19 @@ public class ServerRequestHandler extends ClientWrapper {
 
 			if (response == null) {
 				Logger.error("Technical error happened: Could not parse server's response for player's properties");
-				EventManager.callEvent(new VoxyClientConnectedEvent(client.getExternal(), false));
+				EventManager.callEvent(new VoxyClientConnectedEvent(voxyClient.getExternal(), false));
 				return;
 			}
 
 			if (response.getIdentifier() != VoxyIdentifiers.ACKNOWLEDGEMENT) {
 				debug("The server did not acknowledge back player's properties");
-				EventManager.callEvent(new VoxyClientConnectedEvent(client.getExternal(), false));
+				EventManager.callEvent(new VoxyClientConnectedEvent(voxyClient.getExternal(), false));
 				return;
 			}
 
 			if (response.getError() != VoxyErrors.NO_ERROR) {
 				debug("The server did not accept player properties: %s", response.getError().getMessage());
-				EventManager.callEvent(new VoxyClientConnectedEvent(client.getExternal(), false));
+				EventManager.callEvent(new VoxyClientConnectedEvent(voxyClient.getExternal(), false));
 				return;
 			}
 
@@ -285,7 +287,7 @@ public class ServerRequestHandler extends ClientWrapper {
 
 		} else {
 			debug("A timeout or a connection lost happened after the client sent player's properties");
-			EventManager.callEvent(new VoxyClientConnectedEvent(client.getExternal(), false));
+			EventManager.callEvent(new VoxyClientConnectedEvent(voxyClient.getExternal(), false));
 		}
 	}
 
@@ -300,13 +302,13 @@ public class ServerRequestHandler extends ClientWrapper {
 
 			if (response == null) {
 				Logger.error("Technical error happened: Could not parse server's response for server's properties");
-				EventManager.callEvent(new VoxyClientConnectedEvent(client.getExternal(), false));
+				EventManager.callEvent(new VoxyClientConnectedEvent(voxyClient.getExternal(), false));
 				return;
 			}
 
 			if (response.getError() != VoxyErrors.NO_ERROR) {
 				debug("The server did not accept server's properties: %s", response.getError().getMessage());
-				EventManager.callEvent(new VoxyClientConnectedEvent(client.getExternal(), false));
+				EventManager.callEvent(new VoxyClientConnectedEvent(voxyClient.getExternal(), false));
 				return;
 			}
 
@@ -315,14 +317,14 @@ public class ServerRequestHandler extends ClientWrapper {
 
 				VoxyRoomImpl room = getRooms().add(roomInfo.name(), roomInfo.port());
 				for (PlayerInfo playerInfo : roomInfo.players())
-					room.getPlayers().add(new VoxyPlayerImpl(client, playerInfo.name(), playerInfo.isMute(), playerInfo.isDeaf()));
+					room.getPlayers().add(new VoxyPlayerImpl(voxyClient, playerInfo.name(), playerInfo.isMute(), playerInfo.isDeaf()));
 			}
 
 			info("%s successfully joined the voxy server", getPlayer().getName());
-			EventManager.callEvent(new VoxyClientConnectedEvent(client.getExternal(), true));
+			EventManager.callEvent(new VoxyClientConnectedEvent(voxyClient.getExternal(), true));
 		} else {
 			debug("A timeout or a connection lost happened after the client asks for server's properties");
-			EventManager.callEvent(new VoxyClientConnectedEvent(client.getExternal(), false));
+			EventManager.callEvent(new VoxyClientConnectedEvent(voxyClient.getExternal(), false));
 		}
 	}
 
@@ -330,13 +332,13 @@ public class ServerRequestHandler extends ClientWrapper {
 	 * @return The implementation of a rooms list.
 	 */
 	private RoomListImpl getRooms() {
-		return client.getRooms();
+		return voxyClient.getRooms();
 	}
 
 	/**
 	 * @return The implementation of a voxy main player.
 	 */
 	private VoxyMainPlayerImpl getPlayer() {
-		return client.getPlayer();
+		return voxyClient.getPlayer();
 	}
 }

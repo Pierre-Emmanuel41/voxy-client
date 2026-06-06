@@ -1,57 +1,32 @@
 package fr.pederobien.voxy.client.impl.internal;
 
-import fr.pederobien.communication.impl.EthernetEndPoint;
-import fr.pederobien.communication.impl.layer.AesSafeLayerInitializer;
-import fr.pederobien.communication.interfaces.IEthernetEndPoint;
-import fr.pederobien.communication.interfaces.layer.ICertificate;
 import fr.pederobien.messenger.event.ProtocolConnectionLostEvent;
-import fr.pederobien.messenger.impl.Messenger;
-import fr.pederobien.messenger.impl.client.EthernetProtocolClientConfig;
-import fr.pederobien.messenger.impl.client.ProtocolClientConfig;
-import fr.pederobien.messenger.interfaces.client.IProtocolClient;
 import fr.pederobien.utils.event.EventHandler;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.IEventListener;
 import fr.pederobien.voxy.client.impl.VoxyClient;
 import fr.pederobien.voxy.client.interfaces.IVoxyClient;
-import fr.pederobien.voxy.client.interfaces.IVoxySoundApi;
-import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
+import fr.pederobien.voxy.client.interfaces.IVoxyClientConfig;
 
 public class VoxyClientImpl implements IEventListener {
-	private final EthernetProtocolClientConfig config;
-	private final ICertificate certificate;
-	private final IProtocolClient client;
-	private final IVoxySoundApi soundApi;
+	private final IVoxyClientConfig config;
+	private final VoxyTcpClient tcpClient;
 	private final VoxyMainPlayerImpl player;
 	private final RoomListImpl rooms;
-	private final ServerNotifier notifier;
-	private final ServerRequestHandler handler;
 
 	private final IVoxyClient external;
 
 	/**
 	 * Creates the implementation of a voxy client.
 	 * 
-	 * @param name        The player's name.
-	 * @param address     The server's address.
-	 * @param port        The server's port number.
-	 * @param certificate The certificate to use to sign / authenticate requests.
-	 * @param soundApi    The API to use to access the microphone and the speakers.
+	 * @param config The configuration that gather parameters to create a voxy client.
 	 */
-	protected VoxyClientImpl(String name, String address, int port, ICertificate certificate, IVoxySoundApi soundApi) {
-		this.certificate = certificate;
-		this.soundApi = soundApi;
+	protected VoxyClientImpl(IVoxyClientConfig config) {
+		this.config = config;
 
-		IEthernetEndPoint endPoint = new EthernetEndPoint(address, port);
-		config = Messenger.createEthernetProtocolClientConfig(VoxyProtocolManager.instance(), name, endPoint);
-		config.setLayerInitializer(() -> new AesSafeLayerInitializer(certificate));
-		client = Messenger.createTcpProtocolClient(config);
-
-		player = new VoxyMainPlayerImpl(this, name);
+		tcpClient = new VoxyTcpClient(this, config);
+		player = new VoxyMainPlayerImpl(this, config.getName());
 		rooms = new RoomListImpl(this);
-		notifier = new ServerNotifier(this);
-		handler = new ServerRequestHandler(this);
-		handler.setEnabled(true);
 
 		external = new VoxyClient(this);
 		EventManager.registerListener(this);
@@ -59,14 +34,14 @@ public class VoxyClientImpl implements IEventListener {
 
 	@Override
 	public String toString() {
-		return client.toString();
+		return tcpClient.toString();
 	}
 
 	/**
 	 * Opens the connection with the server. When the connection is established, a VoxyClientConnected event is thrown.
 	 */
 	public void connect() {
-		client.connect();
+		tcpClient.connect();
 	}
 
 	/**
@@ -75,7 +50,7 @@ public class VoxyClientImpl implements IEventListener {
 	public void disconnect() {
 		rooms.clear();
 		player.getVocalClient().disconnect();
-		client.disconnect();
+		tcpClient.disconnect();
 	}
 
 	/**
@@ -83,14 +58,14 @@ public class VoxyClientImpl implements IEventListener {
 	 */
 	public void dispose() {
 		player.getVocalClient().dispose();
-		client.dispose();
+		tcpClient.dispose();
 	}
 
 	/**
 	 * @return True if the client is disposed, false otherwise..
 	 */
 	public boolean isDisposed() {
-		return client.isDisposed();
+		return tcpClient.isDisposed();
 	}
 
 	/**
@@ -108,17 +83,10 @@ public class VoxyClientImpl implements IEventListener {
 	}
 
 	/**
-	 * @return The server's address.
+	 * @return The configuration of the voxy client.
 	 */
-	public String getAddress() {
-		return config.getEndPoint().getAddress();
-	}
-
-	/**
-	 * @return The certificate to use to sign / authenticate requests.
-	 */
-	public ICertificate getCertificate() {
-		return certificate;
+	public IVoxyClientConfig getConfig() {
+		return config;
 	}
 
 	/**
@@ -129,36 +97,15 @@ public class VoxyClientImpl implements IEventListener {
 	}
 
 	/**
-	 * @return The sound API to access the microphone and the speakers.
-	 */
-	public IVoxySoundApi getSoundApi() {
-		return soundApi;
-	}
-
-	/**
 	 * @return The object that sends request to the server.
 	 */
 	public ServerNotifier getNotifier() {
-		return notifier;
-	}
-
-	/**
-	 * @return The client used to communicate with the server.
-	 */
-	protected IProtocolClient getClient() {
-		return client;
-	}
-
-	/**
-	 * @return The configuration used to create/parse requests.
-	 */
-	protected ProtocolClientConfig<IEthernetEndPoint> getConfig() {
-		return config;
+		return tcpClient.getNotifier();
 	}
 
 	@EventHandler
 	private void onConnectionLost(ProtocolConnectionLostEvent event) {
-		if (event.getConnection() != client.getConnection())
+		if (event.getConnection() != tcpClient.getConnection())
 			return;
 
 		rooms.clear();

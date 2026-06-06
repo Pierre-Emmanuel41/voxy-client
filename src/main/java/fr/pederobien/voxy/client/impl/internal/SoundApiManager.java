@@ -26,7 +26,7 @@ public class SoundApiManager extends ClientElement {
 	public SoundApiManager(VoxyClientImpl client) {
 		super(client);
 
-		soundApi = client.getSoundApi();
+		soundApi = client.getConfig().getSoundApi();
 		notInitialized = new NotInitializedState();
 		initialized = new InitializedState();
 		current = notInitialized;

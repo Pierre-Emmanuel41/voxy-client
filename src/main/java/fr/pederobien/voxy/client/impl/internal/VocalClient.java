@@ -1,7 +1,6 @@
 package fr.pederobien.voxy.client.impl.internal;
 
 import fr.pederobien.communication.impl.EthernetEndPoint;
-import fr.pederobien.communication.impl.layer.AesSafeLayerInitializer;
 import fr.pederobien.communication.interfaces.IEthernetEndPoint;
 import fr.pederobien.communication.interfaces.connection.ICallback.CallbackArgs;
 import fr.pederobien.messenger.event.ProtocolClientUnstableEvent;
@@ -21,6 +20,7 @@ import fr.pederobien.utils.event.Logger;
 import fr.pederobien.voxy.client.event.VoxyMainPlayerSpeakingEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomJoinFailureEvent;
 import fr.pederobien.voxy.client.event.VoxyRoomJoinedEvent;
+import fr.pederobien.voxy.client.interfaces.IVoxyUdpConfig;
 import fr.pederobien.voxy.common.impl.VoxyErrors;
 import fr.pederobien.voxy.common.impl.VoxyIdentifiers;
 import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
@@ -31,7 +31,7 @@ import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
 
 public class VocalClient implements IEventListener {
 	private final VoxyMainPlayerImpl player;
-	private EthernetProtocolClientConfig config;
+	private EthernetProtocolClientConfig configuration;
 	private IProtocolClient client;
 	private VoxyRoomImpl room;
 	private SoundApiManager soundManager;
@@ -58,18 +58,27 @@ public class VocalClient implements IEventListener {
 
 		this.room = room;
 
+		IVoxyUdpConfig config = player.getClient().getConfig().getUdpConfig();
+
 		// Connecting to the room's vocal server
-		IEthernetEndPoint endPoint = new EthernetEndPoint(player.getClient().getAddress(), room.getPort());
-		config = Messenger.createEthernetProtocolClientConfig(VoxyProtocolManager.instance(), player.getName() + " - VocalClient", endPoint);
-		config.setAutomaticReconnection(false);
-		config.setLayerInitializer(() -> new AesSafeLayerInitializer(player.getClient().getCertificate()));
+		IEthernetEndPoint endPoint = new EthernetEndPoint(player.getClient().getConfig().getTcpConfig().getEndPoint().getAddress(), room.getPort());
+		configuration = Messenger.createEthernetClientConfig(VoxyProtocolManager.instance(), player.getName() + " - VocalClient", endPoint);
+		configuration.setConnectionName(configuration.getName());
+		configuration.setConnectionMaxUnstableCounter(config.getConnectionMaxUnstableCounter());
+		configuration.setConnectionHealTime(config.getConnectionHealTime());
+		configuration.setConnectionTimeout(config.getConnectionTimeout());
+		configuration.setAutomaticReconnection(false);
+		configuration.setReconnectionDelay(config.getReconnectionDelay());
+		configuration.setLayerInitializer(config.getLayerInitializer());
+		configuration.setClientMaxUnstableCounter(config.getClientMaxUnstableCounter());
+		configuration.setClientHealTime(config.getClientHealTime());
 
 		// Registering event handler
-		config.addRequestHandler(VoxyIdentifiers.PLAYER_PROPERTIES, this::onPlayerProperties);
-		config.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_CONTENT, this::onPlayerSpeak);
-		config.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_VOLUMES, this::onAudioVolumesChanged);
+		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_PROPERTIES, this::onPlayerProperties);
+		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_CONTENT, this::onPlayerSpeak);
+		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_VOLUMES, this::onAudioVolumesChanged);
 
-		client = Messenger.createUdpProtocolClient(config);
+		client = Messenger.createUdpClient(configuration);
 
 		debug("Connecting player %s to %s's vocal server", player.getName(), room.getName());
 		client.connect();
@@ -221,7 +230,7 @@ public class VocalClient implements IEventListener {
 			return;
 		}
 
-		IRequest response = config.parse(argument.response());
+		IRequest response = configuration.parse(argument.response());
 
 		if (response == null) {
 			Logger.error("Technical error happened: Could not parse server's response for player's properties");
@@ -257,7 +266,7 @@ public class VocalClient implements IEventListener {
 	 * @return The request ready to be sent to the server or null if the identifier is not supported.
 	 */
 	private IRequestMessage getRequest(IIdentifier identifier, IError error, Object payload) {
-		return config.getRequest(identifier, error, payload);
+		return configuration.getRequest(identifier, error, payload);
 	}
 
 	/**
