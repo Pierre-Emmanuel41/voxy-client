@@ -61,6 +61,18 @@
 	@call cd ..
 )
 
+@if not exist sound (
+	@echo Cloning git repo for project sound
+    @call git clone --branch 2.0-SNAPSHOT --single-branch https://github.com/Pierre-Emmanuel41/sound.git
+) else (
+	@call cd sound
+
+	@echo Pulling latest changes for project sound
+	@call git pull
+
+	@call cd ..
+)
+
 @rem Building dependencies
 @echo Building project utils
 @call cd utils
@@ -84,6 +96,11 @@
 
 @echo Building project messenger
 @call cd messenger
+@call mvn clean package install
+@call cd ..
+
+@echo Building project sound
+@call cd sound
 @call mvn clean package install
 @call cd ..
 
