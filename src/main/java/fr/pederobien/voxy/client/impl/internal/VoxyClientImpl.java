@@ -24,8 +24,8 @@ public class VoxyClientImpl implements IEventListener {
 	protected VoxyClientImpl(IVoxyClientConfig config) {
 		this.config = config;
 
-		tcpClient = new VoxyTcpClient(this, config);
 		player = new VoxyMainPlayerImpl(this, config.getName());
+		tcpClient = new VoxyTcpClient(this, config);
 		rooms = new RoomListImpl(this);
 
 		external = new VoxyClient(this);
@@ -34,7 +34,7 @@ public class VoxyClientImpl implements IEventListener {
 
 	@Override
 	public String toString() {
-		return tcpClient.toString();
+		return config.getName();
 	}
 
 	/**
