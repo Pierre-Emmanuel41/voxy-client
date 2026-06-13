@@ -1,5 +1,7 @@
 package fr.pederobien.voxy.client.interfaces;
 
+import fr.pederobien.sound.interfaces.ISoundApi;
+
 public interface IVoxyClient {
 
 	/**
@@ -31,4 +33,9 @@ public interface IVoxyClient {
 	 * @return The player associated to this client.
 	 */
 	IVoxyMainPlayer getPlayer();
+
+	/**
+	 * @return The sound API to use to access microphone and speakers.
+	 */
+	ISoundApi getSoundApi();
 }

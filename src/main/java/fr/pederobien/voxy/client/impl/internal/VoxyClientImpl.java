@@ -1,6 +1,7 @@
 package fr.pederobien.voxy.client.impl.internal;
 
 import fr.pederobien.messenger.event.ProtocolConnectionLostEvent;
+import fr.pederobien.sound.interfaces.ISoundApi;
 import fr.pederobien.utils.event.EventHandler;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.IEventListener;
@@ -80,6 +81,13 @@ public class VoxyClientImpl implements IEventListener {
 	 */
 	public VoxyMainPlayerImpl getPlayer() {
 		return player;
+	}
+
+	/**
+	 * @return The sound API to use to access microphone and speakers.
+	 */
+	public ISoundApi getSoundApi() {
+		return config.getSoundApi();
 	}
 
 	/**

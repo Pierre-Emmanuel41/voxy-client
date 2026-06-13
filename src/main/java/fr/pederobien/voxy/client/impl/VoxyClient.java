@@ -1,5 +1,6 @@
 package fr.pederobien.voxy.client.impl;
 
+import fr.pederobien.sound.interfaces.ISoundApi;
 import fr.pederobien.voxy.client.impl.internal.VoxyClientImpl;
 import fr.pederobien.voxy.client.interfaces.IRoomList;
 import fr.pederobien.voxy.client.interfaces.IVoxyClient;
@@ -45,6 +46,11 @@ public class VoxyClient implements IVoxyClient {
 	@Override
 	public IVoxyMainPlayer getPlayer() {
 		return impl.getPlayer().getExternal();
+	}
+
+	@Override
+	public ISoundApi getSoundApi() {
+		return impl.getSoundApi();
 	}
 
 	@Override

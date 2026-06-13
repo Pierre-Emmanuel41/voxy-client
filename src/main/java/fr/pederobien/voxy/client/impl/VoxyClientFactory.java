@@ -1,11 +1,11 @@
 package fr.pederobien.voxy.client.impl;
 
 import fr.pederobien.communication.impl.EthernetEndPoint;
+import fr.pederobien.sound.interfaces.ISoundApi;
 import fr.pederobien.voxy.client.impl.config.VoxyClientConfig;
 import fr.pederobien.voxy.client.impl.internal.Factory;
 import fr.pederobien.voxy.client.interfaces.IVoxyClient;
 import fr.pederobien.voxy.client.interfaces.IVoxyClientConfig;
-import fr.pederobien.voxy.client.interfaces.IVoxySoundApi;
 
 public class VoxyClientFactory {
 
@@ -52,7 +52,7 @@ public class VoxyClientFactory {
 	 * @param soundApi The API to use to access the OS microphone and speakers.
 	 * @return The created voxy client.
 	 */
-	public static final IVoxyClient createDefault(String name, String address, int port, IVoxySoundApi soundApi) {
+	public static final IVoxyClient createDefault(String name, String address, int port, ISoundApi soundApi) {
 		VoxyClientConfig config = createConfig(name, address, port);
 		config.setSoundApi(soundApi);
 

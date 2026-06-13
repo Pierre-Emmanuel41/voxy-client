@@ -1,22 +1,24 @@
 package fr.pederobien.voxy.client.impl.internal;
 
+import java.util.Optional;
+
+import fr.pederobien.sound.interfaces.ISoundApi;
 import fr.pederobien.utils.ByteWrapper;
 import fr.pederobien.utils.event.EventManager;
-import fr.pederobien.voxy.client.event.SoundApiInitializationErrorEvent;
-import fr.pederobien.voxy.client.event.SoundApiInitializedEvent;
 import fr.pederobien.voxy.client.event.VoxyMainPlayerSpeakingEvent;
 import fr.pederobien.voxy.client.event.VoxyMicrophoneCloseFailureEvent;
 import fr.pederobien.voxy.client.event.VoxyMicrophoneOpenFailureEvent;
 import fr.pederobien.voxy.client.event.VoxySpeakersCloseFailureEvent;
 import fr.pederobien.voxy.client.event.VoxySpeakersOpenFailureEvent;
-import fr.pederobien.voxy.client.interfaces.IVoxySoundApi;
+import fr.pederobien.voxy.client.interfaces.ISampleCompressor;
 
 public class SoundApiManager extends ClientElement {
 	private static final int SAMPLE_SIZE = 8820;
-	private final IVoxySoundApi soundApi;
+	private final ISoundApi soundApi;
 	private SoundApiManagerState notInitialized;
 	private SoundApiManagerState initialized;
 	private SoundApiManagerState current;
+	private ISampleCompressor compressor;
 
 	/**
 	 * Creates a manager dedicated to interact with the sound API.
@@ -26,21 +28,14 @@ public class SoundApiManager extends ClientElement {
 	public SoundApiManager(VoxyClientImpl client) {
 		super(client);
 
-		soundApi = client.getConfig().getSoundApi();
+		soundApi = client.getSoundApi();
 		notInitialized = new NotInitializedState();
 		initialized = new InitializedState();
-		current = notInitialized;
 
-		try {
-			debug("Initializing sound API");
-			soundApi.initialize();
-			debug("Sound API initialized successfully");
-			current = initialized;
-			EventManager.callEvent(new SoundApiInitializedEvent());
-		} catch (Exception e) {
-			error("An issue occurred while initializing sound API: %s", e.getMessage());
-			EventManager.callEvent(new SoundApiInitializationErrorEvent(e));
-		}
+		Optional<ISampleCompressor> optional = client.getConfig().getCompressor(client.getConfig().getCompressionAlgorithm());
+		compressor = (optional.isEmpty() ? client.getConfig().getCompressor(0) : optional).get();
+
+		current = soundApi.getMixer().isInitialized() ? initialized : notInitialized;
 	}
 
 	/**
@@ -220,48 +215,54 @@ public class SoundApiManager extends ClientElement {
 
 		@Override
 		protected void write(String name, byte[] sample, byte algorithm) {
-			byte[] uncompressed = BandPassOptimizer.uncompress(sample, algorithm);
-			if (uncompressed == null)
+			Optional<ISampleCompressor> optional = getClient().getConfig().getCompressor((int) algorithm);
+
+			if (optional.isEmpty())
 				return;
 
-			soundApi.getSpeakers().write(name, uncompressed);
+			try {
+				soundApi.getMixer().write(name, optional.get().decompress(sample));
+			} catch (Exception e) {
+				error("An error occurred while writing audio sample for %s: %s", name, e.getMessage());
+			}
 		}
 
 		@Override
 		protected void setVolumes(String name, float left, float right, float global) {
-			soundApi.getSpeakers().setVolumes(name, left, right, global);
+			soundApi.getMixer().setVolumes(name, left, right, global);
 		}
 
 		@Override
 		protected void resetVolumes() {
-			soundApi.getSpeakers().resetVolumes();
+			soundApi.getMixer().resetVolumes();
 		}
 
 		/**
 		 * Fetch data from the microphone and throws a PlayerSpeakingEvent accordingly.
 		 */
 		private void fetch() {
-			byte algorithm = BandPassOptimizer.GZIP;
 			try {
 				while (!isMute) {
 					byte[] sample = new byte[SAMPLE_SIZE];
-					int written = soundApi.getMicrophone().fetch(sample);
+					int read = soundApi.getMicrophone().read(sample);
 
 					// Case the microphone has been closed
-					if (isMute || written == -1)
+					if (isMute || read == -1)
 						break;
 
 					// Resizing to optimize band-pass
-					if (written != SAMPLE_SIZE)
-						sample = ByteWrapper.wrap(sample).extract(0, written);
+					if (read != SAMPLE_SIZE)
+						sample = ByteWrapper.wrap(sample).extract(0, read);
 
-					// Compressing the raw bytes array
-					byte[] compressed = BandPassOptimizer.compress(sample, algorithm);
-					if (compressed == null)
+					// Check if sample contains voice
+					if (!getClient().getConfig().getVoiceActivityDetector().checkVoiceActivity(sample))
 						continue;
 
+					// Compressing the raw bytes array
+					byte[] compressed = compressor.compress(sample);
+
 					// Notifying player is speaking
-					EventManager.callEvent(new VoxyMainPlayerSpeakingEvent(getClient().getPlayer().getExternal(), compressed, algorithm));
+					EventManager.callEvent(new VoxyMainPlayerSpeakingEvent(getClient().getPlayer().getExternal(), compressed, (byte) compressor.getAlgorithm()));
 				}
 			} catch (Exception e) {
 				error("An error occurred while fetching data from the microphone: %s", e.getMessage());
@@ -275,6 +276,7 @@ public class SoundApiManager extends ClientElement {
 		private void openMicrophone() {
 			debug("Opening microphone");
 			try {
+				getClient().getConfig().getVoiceActivityDetector().reset();
 				soundApi.getMicrophone().open();
 
 				fetcher = new Thread(this::fetch, "MicrophoneDataSender");

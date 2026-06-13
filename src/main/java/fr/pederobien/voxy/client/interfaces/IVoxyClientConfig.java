@@ -1,5 +1,9 @@
 package fr.pederobien.voxy.client.interfaces;
 
+import java.util.Optional;
+
+import fr.pederobien.sound.interfaces.ISoundApi;
+
 public interface IVoxyClientConfig {
 
 	/**
@@ -20,5 +24,31 @@ public interface IVoxyClientConfig {
 	/**
 	 * @return The API to use to access the microphone and the speakers.
 	 */
-	IVoxySoundApi getSoundApi();
+	ISoundApi getSoundApi();
+
+	/**
+	 * @return The voice activity detector to filter microphone's audio stream.
+	 */
+	IVoiceActivityDetector getVoiceActivityDetector();
+
+	/**
+	 * Registers an algorithm to compress / decompress raw microphone's audio sample.
+	 * 
+	 * @param compressor An algorithm to compress / decompress audio samples.
+	 * @return True if the algorithm has been registered successfully.
+	 */
+	boolean registerCompressor(ISampleCompressor compressor);
+
+	/**
+	 * @return The compression algorithm to use to compress / decompress microphone's raw audio sample.
+	 */
+	int getCompressionAlgorithm();
+
+	/**
+	 * Get the algorithm associated to the given algorithm number.
+	 * 
+	 * @param algorithm The key used to find the algorithm.
+	 * @return An optional that contains the algorithm if found, an empty optional otherwise.
+	 */
+	Optional<ISampleCompressor> getCompressor(int algorithm);
 }
