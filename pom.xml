@@ -15,6 +15,13 @@
         <maven.compiler.target>21</maven.compiler.target>
     </properties>
 
+    <repositories>
+        <repository>
+            <id>henkelmax.public</id>
+            <url>https://maven.maxhenkel.de/repository/public</url>
+        </repository>
+    </repositories>
+
     <dependencies>
         <dependency>
             <groupId>fr.pederobien</groupId>
@@ -30,6 +37,13 @@
         	<groupId>fr.pederobien</groupId>
         	<artifactId>sound</artifactId>
         	<version>2.0-SNAPSHOT</version>
+        </dependency>
+
+        <!-- EXTERNAL LIBRARY -->
+        <dependency>
+            <groupId>de.maxhenkel.opus4j</groupId>
+            <artifactId>opus4j</artifactId>
+            <version>2.1.0</version>
         </dependency>
     </dependencies>
 

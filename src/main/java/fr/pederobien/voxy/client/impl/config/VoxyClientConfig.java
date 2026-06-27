@@ -2,13 +2,20 @@ package fr.pederobien.voxy.client.impl.config;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
+import java.util.function.Supplier;
+
+import javax.sound.sampled.AudioFormat;
 
 import fr.pederobien.communication.interfaces.IEthernetEndPoint;
+import fr.pederobien.sound.event.SoundApiInitializationErrorEvent;
+import fr.pederobien.sound.event.SoundApiInitializedEvent;
 import fr.pederobien.sound.impl.SoundApi;
 import fr.pederobien.sound.interfaces.ISoundApi;
+import fr.pederobien.utils.event.EventManager;
+import fr.pederobien.utils.event.Logger;
 import fr.pederobien.voxy.client.impl.compressors.GZipCompression;
 import fr.pederobien.voxy.client.impl.compressors.NoCompression;
+import fr.pederobien.voxy.client.impl.compressors.OpusCompression;
 import fr.pederobien.voxy.client.impl.internal.VoiceActivityDetector;
 import fr.pederobien.voxy.client.interfaces.ISampleCompressor;
 import fr.pederobien.voxy.client.interfaces.IVoiceActivityDetector;
@@ -20,7 +27,7 @@ public class VoxyClientConfig implements IVoxyClientConfig {
 	private final VoxyUdpConfig udpConfig;
 	private ISoundApi soundApi;
 	private IVoiceActivityDetector vad;
-	private Map<Integer, ISampleCompressor> compressors;
+	private Map<Integer, Supplier<ISampleCompressor>> compressors;
 	private int algorithm;
 
 	/**
@@ -37,9 +44,14 @@ public class VoxyClientConfig implements IVoxyClientConfig {
 		soundApi = new SoundApi();
 		vad = new VoiceActivityDetector();
 
-		compressors = new HashMap<Integer, ISampleCompressor>();
-		compressors.put(0, new NoCompression());
-		compressors.put(1, new GZipCompression());
+		compressors = new HashMap<Integer, Supplier<ISampleCompressor>>();
+		compressors.put(0, () -> new NoCompression());
+		compressors.put(1, () -> new GZipCompression());
+
+		compressors.put(2, () -> {
+			AudioFormat format = soundApi.getMixer().getMicrophoneLine().getFormat();
+			return new OpusCompression(format.getSampleRate(), format.isBigEndian());
+		});
 
 		algorithm = 0;
 	}
@@ -65,12 +77,25 @@ public class VoxyClientConfig implements IVoxyClientConfig {
 	}
 
 	/**
-	 * Set the sound API to use to access the player's microphone and speakers.
+	 * Set the sound API to use to access the player's microphone and speakers. If the previous sound API was already initialized, it
+	 * will be disposed and the new sound API will be initialized.
 	 * 
 	 * @param soundApi The sound API to use.
 	 */
 	public void setSoundApi(ISoundApi soundApi) {
-		this.soundApi = soundApi;
+		if (this.soundApi.getMixer().isInitialized())
+			this.soundApi.dispose();
+
+		try {
+			soundApi.initialize();
+			this.soundApi = soundApi;
+
+			Logger.info("Sound API initialized successfully");
+			EventManager.callEvent(new SoundApiInitializedEvent(soundApi));
+		} catch (Exception e) {
+			Logger.error("An issue occurred while initializing sound API: %s", e.getMessage());
+			EventManager.callEvent(new SoundApiInitializationErrorEvent(e));
+		}
 	}
 
 	@Override
@@ -88,16 +113,16 @@ public class VoxyClientConfig implements IVoxyClientConfig {
 	}
 
 	@Override
-	public boolean registerCompressor(ISampleCompressor compressor) {
+	public boolean registerCompressor(int algorithm, Supplier<ISampleCompressor> compressor) {
 		// First 20 values are reserved.
-		if (compressor.getAlgorithm() < 20 || 255 < compressor.getAlgorithm())
+		if (algorithm < 20 || 255 < algorithm)
 			return false;
 
 		// An algorithm is already registered for the value.
-		if (compressors.containsKey(compressor.getAlgorithm()))
+		if (compressors.containsKey(algorithm))
 			return false;
 
-		compressors.put(compressor.getAlgorithm(), compressor);
+		compressors.put(algorithm, compressor);
 		return true;
 	}
 
@@ -121,7 +146,8 @@ public class VoxyClientConfig implements IVoxyClientConfig {
 	}
 
 	@Override
-	public Optional<ISampleCompressor> getCompressor(int algorithm) {
-		return Optional.ofNullable(compressors.get(algorithm));
+	public ISampleCompressor getCompressor(int algorithm) {
+		Supplier<ISampleCompressor> supplier = compressors.get(algorithm);
+		return supplier == null ? getCompressor(0) : supplier.get();
 	}
 }
