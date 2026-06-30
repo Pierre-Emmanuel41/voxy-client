@@ -35,9 +35,10 @@ public class RoomListImpl extends ClientElement {
 	 * Sends a request to the server to add a room.
 	 * 
 	 * @param name The name of the room to add.
+	 * @param port The port number to use for the room's vocal server.
 	 */
-	public void sendRoomAddRequest(String name) {
-		getClient().getNotifier().sendRoomAddRequest(name);
+	public void sendRoomAddRequest(String name, int port) {
+		getClient().getNotifier().sendRoomAddRequest(name, port);
 	}
 
 	/**

@@ -21,8 +21,8 @@ public class RoomList implements IRoomList {
 	}
 
 	@Override
-	public void add(String name) {
-		impl.sendRoomAddRequest(name);
+	public void add(String name, int port) {
+		impl.sendRoomAddRequest(name, port);
 	}
 
 	@Override

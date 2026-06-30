@@ -45,10 +45,11 @@ public class ServerNotifier extends ClientWrapper {
 	 * Sends a request to the server to add a room.
 	 * 
 	 * @param name The name of the room to add.
+	 * @param port The port number to use for the room's vocal server.
 	 */
-	protected void sendRoomAddRequest(String name) {
+	protected void sendRoomAddRequest(String name, int port) {
 		info("Sending a request to the server to add room %s", name);
-		IRequestMessage request = getRequest(VoxyIdentifiers.ADD_ROOM, new AddRoomRequest(name));
+		IRequestMessage request = getRequest(VoxyIdentifiers.ADD_ROOM, new AddRoomRequest(name, port));
 		request.setCallback(args -> accept(args, new VoxyRoomAddFailureEvent(name)));
 
 		send(request);

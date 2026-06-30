@@ -10,8 +10,9 @@ public interface IRoomList {
 	 * allowed, the server will create a room and notify this client, resulting of throwing a VoxyRoomAddedEvent.
 	 *
 	 * @param name The room's name to add.
+	 * @param port The port number to use for the room's vocal server, 0 to let the server choosing a free port.
 	 */
-	void add(String name);
+	void add(String name, int port);
 
 	/**
 	 * Sends a request to the server to remove a room. If the request is denied, a VoxyRoomRemoveFailureEvent is thrown. If the
