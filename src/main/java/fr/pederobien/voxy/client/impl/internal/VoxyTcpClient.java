@@ -4,8 +4,9 @@ import fr.pederobien.messenger.impl.Messenger;
 import fr.pederobien.messenger.impl.client.EthernetProtocolClientConfig;
 import fr.pederobien.messenger.interfaces.IProtocolConnection;
 import fr.pederobien.messenger.interfaces.client.IProtocolClient;
+import fr.pederobien.protocol.interfaces.IProtocolManager;
 import fr.pederobien.voxy.client.interfaces.IVoxyClientConfig;
-import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
+import fr.pederobien.voxy.common.impl.VoxyManagers;
 
 public class VoxyTcpClient {
 	private final IProtocolClient client;
@@ -19,8 +20,8 @@ public class VoxyTcpClient {
 	 */
 	public VoxyTcpClient(VoxyClientImpl voxyClient, IVoxyClientConfig config) {
 		String name = config.getName();
-
-		EthernetProtocolClientConfig configuration = Messenger.createEthernetClientConfig(VoxyProtocolManager.instance(), name, config.getTcpConfig().getEndPoint());
+		IProtocolManager protocolManager = VoxyManagers.instance().getProtocolManager();
+		EthernetProtocolClientConfig configuration = Messenger.createEthernetClientConfig(protocolManager, name, config.getTcpConfig().getEndPoint());
 		configuration.setConnectionName(configuration.getName());
 		configuration.setConnectionMaxUnstableCounter(config.getTcpConfig().getConnectionMaxUnstableCounter());
 		configuration.setConnectionHealTime(config.getTcpConfig().getConnectionHealTime());

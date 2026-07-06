@@ -6,6 +6,7 @@ import java.util.List;
 
 import fr.pederobien.sound.event.SoundApiInitializationErrorEvent;
 import fr.pederobien.sound.event.SoundApiInitializedEvent;
+import fr.pederobien.sound.interfaces.IEffect;
 import fr.pederobien.sound.interfaces.ISoundApi;
 import fr.pederobien.utils.ByteWrapper;
 import fr.pederobien.utils.ReadableByteWrapper;
@@ -117,6 +118,28 @@ public class SoundApiManager extends ClientElement {
 		current.remove(player);
 	}
 
+	/**
+	 * Set the effect to apply on a stream. If an effect is already applied on the stream, the stop method is called and the given
+	 * effect is queued until the previous effect finish its transition to no modification. The effect's start method is automatically
+	 * called.
+	 * 
+	 * @param name   The name of the stream on which an effect shall be applied.
+	 * @param effect The effect to apply.
+	 */
+	public void setEffect(String name, IEffect effect) {
+		current.setEffect(name, effect);
+	}
+
+	/**
+	 * Update parameters of an effect. The parameters defines how the effect modifies the audio stream.
+	 * 
+	 * @param name   The name of the stream on which an effect shall be modified.
+	 * @param params An list of values of parameter.
+	 */
+	public void setEffectValues(String name, Object... params) {
+		current.setEffectValues(name, params);
+	}
+
 	private abstract class SoundApiManagerState {
 
 		/**
@@ -168,6 +191,24 @@ public class SoundApiManager extends ClientElement {
 		 * @param player The player that left a voxy room.
 		 */
 		protected abstract void remove(String player);
+
+		/**
+		 * Set the effect to apply on a stream. If an effect is already applied on the stream, the stop method is called and the given
+		 * effect is queued until the previous effect finish its transition to no modification. The effect's start method is automatically
+		 * called.
+		 * 
+		 * @param name   The name of the stream on which an effect shall be applied.
+		 * @param effect The effect to apply.
+		 */
+		protected abstract void setEffect(String name, IEffect effect);
+
+		/**
+		 * Update parameters of an effect. The parameters defines how the effect modifies the audio stream.
+		 * 
+		 * @param name   The name of the stream on which an effect shall be modified.
+		 * @param params An list of values of parameter.
+		 */
+		protected abstract void setEffectValues(String name, Object... params);
 	}
 
 	private class NotInitializedState extends SoundApiManagerState {
@@ -204,6 +245,16 @@ public class SoundApiManager extends ClientElement {
 
 		@Override
 		protected void remove(String player) {
+			// Do nothing
+		}
+
+		@Override
+		protected void setEffect(String name, IEffect effect) {
+			// Do nothing
+		}
+
+		@Override
+		protected void setEffectValues(String name, Object... params) {
 			// Do nothing
 		}
 	}
@@ -281,6 +332,16 @@ public class SoundApiManager extends ClientElement {
 		@Override
 		protected void remove(String player) {
 			decompressors.remove(player);
+		}
+
+		@Override
+		protected void setEffect(String name, IEffect effect) {
+			soundApi.getMixer().setEffect(name, effect);
+		}
+
+		@Override
+		protected void setEffectValues(String name, Object... params) {
+			soundApi.getMixer().setEffectValues(name, params);
 		}
 
 		/**

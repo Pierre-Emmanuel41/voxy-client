@@ -2,6 +2,7 @@ package fr.pederobien.voxy.client.interfaces;
 
 import java.util.function.Supplier;
 
+import fr.pederobien.sound.interfaces.IEffect;
 import fr.pederobien.sound.interfaces.ISoundApi;
 
 public interface IVoxyClientConfig {
@@ -52,4 +53,13 @@ public interface IVoxyClientConfig {
 	 * @return The compressor associated to the given algorithm number if it exists, the default compressor otherwise.
 	 */
 	ISampleCompressor getCompressor(int algorithm);
+
+	/**
+	 * Creates an effect associated to the given name and parameters values.
+	 * 
+	 * @param name   The name of the effect the creates
+	 * @param values The values of effect parameters.
+	 * @return The created effect if registered, null otherwise.
+	 */
+	IEffect createEffect(String name, Object... values);
 }

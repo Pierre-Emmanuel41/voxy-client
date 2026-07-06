@@ -13,6 +13,7 @@ import fr.pederobien.messenger.interfaces.client.IProtocolClient;
 import fr.pederobien.protocol.interfaces.IError;
 import fr.pederobien.protocol.interfaces.IIdentifier;
 import fr.pederobien.protocol.interfaces.IRequest;
+import fr.pederobien.sound.interfaces.IEffect;
 import fr.pederobien.utils.event.EventHandler;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.IEventListener;
@@ -23,8 +24,9 @@ import fr.pederobien.voxy.client.event.VoxyRoomJoinedEvent;
 import fr.pederobien.voxy.client.interfaces.IVoxyUdpConfig;
 import fr.pederobien.voxy.common.impl.VoxyErrors;
 import fr.pederobien.voxy.common.impl.VoxyIdentifiers;
-import fr.pederobien.voxy.common.impl.VoxyProtocolManager;
+import fr.pederobien.voxy.common.impl.VoxyManagers;
 import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamContentRequest;
+import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamEffectRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamVolumesRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamVolumesRequest.VolumeInfo;
 import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
@@ -62,7 +64,7 @@ public class VocalClient implements IEventListener {
 
 		// Connecting to the room's vocal server
 		IEthernetEndPoint endPoint = new EthernetEndPoint(player.getClient().getConfig().getTcpConfig().getEndPoint().getAddress(), room.getPort());
-		configuration = Messenger.createEthernetClientConfig(VoxyProtocolManager.instance(), player.getName() + " - VocalClient", endPoint);
+		configuration = Messenger.createEthernetClientConfig(VoxyManagers.instance().getProtocolManager(), player.getName() + " - VocalClient", endPoint);
 		configuration.setConnectionName(configuration.getName());
 		configuration.setConnectionMaxUnstableCounter(config.getConnectionMaxUnstableCounter());
 		configuration.setConnectionHealTime(config.getConnectionHealTime());
@@ -77,6 +79,8 @@ public class VocalClient implements IEventListener {
 		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_PROPERTIES, this::onPlayerProperties);
 		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_CONTENT, this::onPlayerSpeak);
 		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_VOLUMES, this::onAudioVolumesChanged);
+		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_EFFECT, this::onAudioEffect);
+		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_EFFECT_UPDATE, this::onAudioEffectChanged);
 
 		client = Messenger.createUdpClient(configuration);
 
@@ -215,6 +219,41 @@ public class VocalClient implements IEventListener {
 			debug(format, player.getName(), info.getName(), info.getLeft(), info.getRight(), info.getGlobal());
 			soundManager.setVolumes(info.getName(), info.getLeft(), info.getRight(), info.getGlobal());
 		}
+	}
+
+	/**
+	 * Event handler: Method called when the server notify this client that an effect shall be applied for a player.
+	 * 
+	 * @param connection The connection with the server.
+	 * @param messageID  The server's message identifier.
+	 * @param payload    The payload that contains the name of the player, the effect name and parameters
+	 */
+	private void onAudioEffect(IProtocolConnection connection, int messageID, Object payload) {
+		if (!(payload instanceof PlayerAudioStreamEffectRequest request))
+			return;
+
+		String effectName = request.getDescription().getEffectName();
+		Object[] values = request.getDescription().getValues();
+		IEffect effect = player.getClient().getConfig().createEffect(effectName, values);
+
+		if (effect == null)
+			return;
+
+		soundManager.setEffect(request.getPlayerName(), effect);
+	}
+
+	/**
+	 * Event handler: Method called when the server notify this client that the current effect of a player shall be modified.
+	 * 
+	 * @param connection The connection with the server.
+	 * @param messageID  The server's message identifier.
+	 * @param payload    The payload that contains the name of the player, the effect name and parameters.
+	 */
+	private void onAudioEffectChanged(IProtocolConnection connection, int messageID, Object payload) {
+		if (!(payload instanceof PlayerAudioStreamEffectRequest request))
+			return;
+
+		soundManager.setEffectValues(request.getPlayerName(), request.getDescription().getValues());
 	}
 
 	/**
