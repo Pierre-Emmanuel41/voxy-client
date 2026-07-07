@@ -12,6 +12,7 @@ import fr.pederobien.sound.event.SoundApiInitializationErrorEvent;
 import fr.pederobien.sound.event.SoundApiInitializedEvent;
 import fr.pederobien.sound.impl.SoundApi;
 import fr.pederobien.sound.impl.effects.EchoEffect;
+import fr.pederobien.sound.impl.effects.NoEffect;
 import fr.pederobien.sound.interfaces.IEffect;
 import fr.pederobien.sound.interfaces.ISoundApi;
 import fr.pederobien.utils.event.EventManager;
@@ -24,6 +25,7 @@ import fr.pederobien.voxy.client.interfaces.ISampleCompressor;
 import fr.pederobien.voxy.client.interfaces.IVoiceActivityDetector;
 import fr.pederobien.voxy.client.interfaces.IVoxyClientConfig;
 import fr.pederobien.voxy.common.impl.effects.EchoEffectDescription;
+import fr.pederobien.voxy.common.impl.effects.NoEffectDescription;
 
 public class VoxyClientConfig implements IVoxyClientConfig {
 	private final String name;
@@ -61,6 +63,7 @@ public class VoxyClientConfig implements IVoxyClientConfig {
 		algorithm = 0;
 
 		effects = new HashMap<String, Function<Object[], IEffect>>();
+		effects.put(NoEffectDescription.NAME, values -> new NoEffect());
 		effects.put(EchoEffectDescription.NAME, values -> {
 			float sampleRate = soundApi.getMixer().getSampleRate();
 			int delay = (int) values[0];
