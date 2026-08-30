@@ -2,7 +2,6 @@ package fr.pederobien.voxy.client.impl.config;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 import javax.sound.sampled.AudioFormat;
@@ -14,6 +13,7 @@ import fr.pederobien.sound.impl.SoundApi;
 import fr.pederobien.sound.impl.effects.EchoEffect;
 import fr.pederobien.sound.impl.effects.NoEffect;
 import fr.pederobien.sound.interfaces.IEffect;
+import fr.pederobien.sound.interfaces.IEffectParametersHolder;
 import fr.pederobien.sound.interfaces.ISoundApi;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.Logger;
@@ -21,20 +21,19 @@ import fr.pederobien.voxy.client.impl.compressors.GZipCompression;
 import fr.pederobien.voxy.client.impl.compressors.NoCompression;
 import fr.pederobien.voxy.client.impl.compressors.OpusCompression;
 import fr.pederobien.voxy.client.impl.internal.VoiceActivityDetector;
+import fr.pederobien.voxy.client.interfaces.IEffectBuilder;
 import fr.pederobien.voxy.client.interfaces.ISampleCompressor;
 import fr.pederobien.voxy.client.interfaces.IVoiceActivityDetector;
 import fr.pederobien.voxy.client.interfaces.IVoxyClientConfig;
-import fr.pederobien.voxy.common.impl.effects.EchoEffectDescription;
-import fr.pederobien.voxy.common.impl.effects.NoEffectDescription;
 
 public class VoxyClientConfig implements IVoxyClientConfig {
 	private final String name;
 	private final VoxyTcpConfig tcpConfig;
 	private final VoxyUdpConfig udpConfig;
+	private final Map<Integer, Supplier<ISampleCompressor>> compressors;
+	private final Map<String, IEffectBuilder> builders;
 	private ISoundApi soundApi;
 	private IVoiceActivityDetector vad;
-	private Map<Integer, Supplier<ISampleCompressor>> compressors;
-	private Map<String, Function<Object[], IEffect>> effects;
 	private int algorithm;
 
 	/**
@@ -62,15 +61,9 @@ public class VoxyClientConfig implements IVoxyClientConfig {
 
 		algorithm = 0;
 
-		effects = new HashMap<String, Function<Object[], IEffect>>();
-		effects.put(NoEffectDescription.NAME, values -> new NoEffect());
-		effects.put(EchoEffectDescription.NAME, values -> {
-			float sampleRate = soundApi.getMixer().getSampleRate();
-			int delay = (int) values[0];
-			float feedback = (float) values[1];
-			float gain = (float) values[2];
-			return new EchoEffect(sampleRate, delay, feedback, gain);
-		});
+		builders = new HashMap<String, IEffectBuilder>();
+		builders.put(NoEffect.NAME, new NoEffectBuilder());
+		builders.put(EchoEffect.NAME, new EchoEffectBuilder());
 	}
 
 	@Override
@@ -129,7 +122,13 @@ public class VoxyClientConfig implements IVoxyClientConfig {
 		this.vad = vad;
 	}
 
-	@Override
+	/**
+	 * Registers an algorithm to compress / decompress raw microphone's audio sample.
+	 * 
+	 * @param algorithm  The algorithm number associated to the supplier.
+	 * @param compressor An algorithm to compress / decompress audio samples.
+	 * @return True if the algorithm has been registered successfully.
+	 */
 	public boolean registerCompressor(int algorithm, Supplier<ISampleCompressor> compressor) {
 		// First 20 values are reserved.
 		if (algorithm < 20 || 255 < algorithm)
@@ -169,28 +168,41 @@ public class VoxyClientConfig implements IVoxyClientConfig {
 	}
 
 	/**
-	 * Register an effect to this configuration. An effect is used to modify the audio stream of a player under specific conditions
-	 * defined by the server.
+	 * Register an effect builder. The builder is used to create effects.
 	 * 
-	 * @param name     The name of the effect.
-	 * @param function The function that creates an effect.
-	 * @return True if the function has been registered successfully, false otherwise.
+	 * @param name    The name of the effect.
+	 * @param builder The associated builder.
+	 * @return True if the supplier has been registered successfully, false if a builder is already registered for the given name.
 	 */
-	public boolean registerEffect(String name, Function<Object[], IEffect> function) {
-		Function<Object[], IEffect> f = effects.get(name);
-		if (f != null)
+	public boolean registerEffectBuilder(String name, IEffectBuilder builder) {
+		IEffectBuilder registered = builders.get(name);
+		if (registered != null)
 			return false;
 
-		effects.put(name, function);
+		builders.put(name, builder);
 		return true;
 	}
 
 	@Override
-	public IEffect createEffect(String name, Object... values) {
-		Function<Object[], IEffect> function = effects.get(name);
-		if (function == null)
+	public IEffect createEffect(String name, Map<String, Object> values) {
+		IEffectBuilder builder = builders.get(name);
+		if (builder == null)
 			return null;
 
-		return function.apply(values);
+		IEffectParametersHolder holder = builder.createHolder(values);
+		if (holder == null)
+			return null;
+
+		return builder.createEffect(soundApi.getMixer().getSampleRate(), holder);
+	}
+
+	@Override
+	public IEffectParametersHolder createHolder(String name, Map<String, Object> values) {
+		IEffectBuilder builder = builders.get(name);
+		if (builder == null)
+			return null;
+
+		IEffectParametersHolder holder = builder.createHolder(values);
+		return holder;
 	}
 }

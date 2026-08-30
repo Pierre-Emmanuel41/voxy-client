@@ -1,8 +1,9 @@
 package fr.pederobien.voxy.client.interfaces;
 
-import java.util.function.Supplier;
+import java.util.Map;
 
 import fr.pederobien.sound.interfaces.IEffect;
+import fr.pederobien.sound.interfaces.IEffectParametersHolder;
 import fr.pederobien.sound.interfaces.ISoundApi;
 
 public interface IVoxyClientConfig {
@@ -33,15 +34,6 @@ public interface IVoxyClientConfig {
 	IVoiceActivityDetector getVoiceActivityDetector();
 
 	/**
-	 * Registers an algorithm to compress / decompress raw microphone's audio sample.
-	 * 
-	 * @param algorithm  The algorithm number associated to the supplier.
-	 * @param compressor An algorithm to compress / decompress audio samples.
-	 * @return True if the algorithm has been registered successfully.
-	 */
-	boolean registerCompressor(int algorithm, Supplier<ISampleCompressor> compressor);
-
-	/**
 	 * @return The compression algorithm to use to compress / decompress microphone's raw audio sample.
 	 */
 	int getCompressionAlgorithm();
@@ -58,8 +50,17 @@ public interface IVoxyClientConfig {
 	 * Creates an effect associated to the given name and parameters values.
 	 * 
 	 * @param name   The name of the effect the creates
-	 * @param values The values of effect parameters.
+	 * @param values A map that gather parameter's name / parameters's value.
 	 * @return The created effect if registered, null otherwise.
 	 */
-	IEffect createEffect(String name, Object... values);
+	IEffect createEffect(String name, Map<String, Object> values);
+
+	/**
+	 * Creates a holder that contains effect parameters updated with the given values map.
+	 * 
+	 * @param name   The name of the effect.
+	 * @param values A map that gather parameter's name / parameter's value.
+	 * @return The parameters holder if registered, null otherwise.
+	 */
+	IEffectParametersHolder createHolder(String name, Map<String, Object> values);
 }

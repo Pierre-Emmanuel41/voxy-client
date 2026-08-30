@@ -1,5 +1,7 @@
 package fr.pederobien.voxy.client.impl.internal;
 
+import java.util.Map;
+
 import fr.pederobien.communication.impl.EthernetEndPoint;
 import fr.pederobien.communication.interfaces.IEthernetEndPoint;
 import fr.pederobien.communication.interfaces.connection.ICallback.CallbackArgs;
@@ -13,7 +15,6 @@ import fr.pederobien.messenger.interfaces.client.IProtocolClient;
 import fr.pederobien.protocol.interfaces.IError;
 import fr.pederobien.protocol.interfaces.IIdentifier;
 import fr.pederobien.protocol.interfaces.IRequest;
-import fr.pederobien.sound.interfaces.IEffect;
 import fr.pederobien.utils.event.EventHandler;
 import fr.pederobien.utils.event.EventManager;
 import fr.pederobien.utils.event.IEventListener;
@@ -25,8 +26,10 @@ import fr.pederobien.voxy.client.interfaces.IVoxyUdpConfig;
 import fr.pederobien.voxy.common.impl.VoxyErrors;
 import fr.pederobien.voxy.common.impl.VoxyIdentifiers;
 import fr.pederobien.voxy.common.impl.VoxyManagers;
+import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamAddEffectRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamContentRequest;
-import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamEffectRequest;
+import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamRemoveEffectRequest;
+import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamUpdateEffectRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamVolumesRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamVolumesRequest.VolumeInfo;
 import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
@@ -79,8 +82,9 @@ public class VocalClient implements IEventListener {
 		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_PROPERTIES, this::onPlayerProperties);
 		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_CONTENT, this::onPlayerSpeak);
 		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_VOLUMES, this::onAudioVolumesChanged);
-		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_EFFECT, this::onAudioEffect);
-		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_EFFECT_UPDATE, this::onAudioEffectChanged);
+		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_ADD_EFFECT, this::onAddEffect);
+		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_REMOVE_EFFECT, this::onRemoveEffect);
+		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_UPDATE_EFFECT, this::onUpdateEffect);
 
 		client = Messenger.createUdpClient(configuration);
 
@@ -228,18 +232,30 @@ public class VocalClient implements IEventListener {
 	 * @param messageID  The server's message identifier.
 	 * @param payload    The payload that contains the name of the player, the effect name and parameters
 	 */
-	private void onAudioEffect(IProtocolConnection connection, int messageID, Object payload) {
-		if (!(payload instanceof PlayerAudioStreamEffectRequest request))
+	private void onAddEffect(IProtocolConnection connection, int messageID, Object payload) {
+		if (!(payload instanceof PlayerAudioStreamAddEffectRequest request))
 			return;
 
-		String effectName = request.getDescription().getEffectName();
-		Object[] values = request.getDescription().getValues();
-		IEffect effect = player.getClient().getConfig().createEffect(effectName, values);
+		String playerName = request.getPlayerName();
+		int index = request.getIndex();
+		String effectName = request.getEffect().getName();
+		Map<String, Object> values = request.getEffect().getParametersMap();
 
-		if (effect == null)
+		soundManager.addEffect(playerName, index, effectName, values);
+	}
+
+	/**
+	 * Event handler: Method called when the server notify this client that an effect shall be removed for a player.
+	 * 
+	 * @param connection The connection with the server.
+	 * @param messageID  The server's message identifier.
+	 * @param payload    The payload that contains the name of the player and the effect name
+	 */
+	private void onRemoveEffect(IProtocolConnection connection, int messageID, Object payload) {
+		if (!(payload instanceof PlayerAudioStreamRemoveEffectRequest request))
 			return;
 
-		soundManager.setEffect(request.getPlayerName(), effect);
+		soundManager.removeEffect(request.getPlayerName(), request.getEffectName());
 	}
 
 	/**
@@ -249,11 +265,15 @@ public class VocalClient implements IEventListener {
 	 * @param messageID  The server's message identifier.
 	 * @param payload    The payload that contains the name of the player, the effect name and parameters.
 	 */
-	private void onAudioEffectChanged(IProtocolConnection connection, int messageID, Object payload) {
-		if (!(payload instanceof PlayerAudioStreamEffectRequest request))
+	private void onUpdateEffect(IProtocolConnection connection, int messageID, Object payload) {
+		if (!(payload instanceof PlayerAudioStreamUpdateEffectRequest request))
 			return;
 
-		soundManager.setEffectValues(request.getPlayerName(), request.getDescription().getValues());
+		String playerName = request.getPlayerName();
+		String effectName = request.getEffect().getName();
+		Map<String, Object> values = request.getEffect().getParametersMap();
+
+		soundManager.updateEffect(playerName, effectName, values);
 	}
 
 	/**

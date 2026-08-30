@@ -3,10 +3,12 @@ package fr.pederobien.voxy.client.impl.internal;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import fr.pederobien.sound.event.SoundApiInitializationErrorEvent;
 import fr.pederobien.sound.event.SoundApiInitializedEvent;
 import fr.pederobien.sound.interfaces.IEffect;
+import fr.pederobien.sound.interfaces.IEffectParametersHolder;
 import fr.pederobien.sound.interfaces.ISoundApi;
 import fr.pederobien.utils.ByteWrapper;
 import fr.pederobien.utils.ReadableByteWrapper;
@@ -35,7 +37,7 @@ public class SoundApiManager extends ClientElement {
 
 		soundApi = client.getSoundApi();
 
-		client.getConfig().getVoiceActivityDetector().initialize(soundApi.getMixer().getSampleRate(), 1000, 300);
+		client.getConfig().getVoiceActivityDetector().initialize(soundApi.getMixer().getSampleRate(), 1000, 500);
 
 		if (soundApi.getMixer().isInitialized())
 			current = new InitializedState(client.getConfig());
@@ -119,25 +121,39 @@ public class SoundApiManager extends ClientElement {
 	}
 
 	/**
-	 * Set the effect to apply on a stream. If an effect is already applied on the stream, the stop method is called and the given
-	 * effect is queued until the previous effect finish its transition to no modification. The effect's start method is automatically
-	 * called.
+	 * Adds an effect to apply on an audio stream.
 	 * 
-	 * @param name   The name of the stream on which an effect shall be applied.
-	 * @param effect The effect to apply.
+	 * @param name       The name of the stream on which an effect shall be added.
+	 * @param index      The index at which the effect shall be added. If the index is greater than the size of the list of effect
+	 *                   then the effect will be added to the end.
+	 * @param effectName The name of the effect to add.
+	 * @param values     A map that gather parameter's name / parameter's value.
+	 * 
 	 */
-	public void setEffect(String name, IEffect effect) {
-		current.setEffect(name, effect);
+	public void addEffect(String name, int index, String effectName, Map<String, Object> values) {
+		current.addEffect(name, index, effectName, values);
 	}
 
 	/**
-	 * Update parameters of an effect. The parameters defines how the effect modifies the audio stream.
+	 * Stops the effect associated to the given effectName. The effect will transition smoothly from applied to not applied. Once
+	 * stopped completely, the effect will be removed.
 	 * 
-	 * @param name   The name of the stream on which an effect shall be modified.
-	 * @param params An list of values of parameter.
+	 * @param name       The name of the audio stream for which an effect shall be removed.
+	 * @param effectName The name of the effect to remove.
 	 */
-	public void setEffectValues(String name, Object... params) {
-		current.setEffectValues(name, params);
+	public void removeEffect(String name, String effectName) {
+		current.removeEffect(name, effectName);
+	}
+
+	/**
+	 * Update the parameters of an effect. The parameters defines how the effect modifies the audio stream.
+	 * 
+	 * @param name       The name of the audio stream on which an effect shall be modified.
+	 * @param effectName The name of the effect to update.
+	 * @param values     A map that gather parameter's name / parameter's value.
+	 */
+	public void updateEffect(String name, String effectName, Map<String, Object> values) {
+		current.updateEffect(name, effectName, values);
 	}
 
 	private abstract class SoundApiManagerState {
@@ -193,22 +209,42 @@ public class SoundApiManager extends ClientElement {
 		protected abstract void remove(String player);
 
 		/**
-		 * Set the effect to apply on a stream. If an effect is already applied on the stream, the stop method is called and the given
-		 * effect is queued until the previous effect finish its transition to no modification. The effect's start method is automatically
-		 * called.
+		 * Adds an effect to apply on an audio stream.
 		 * 
-		 * @param name   The name of the stream on which an effect shall be applied.
-		 * @param effect The effect to apply.
+		 * @param name       The name of the stream on which an effect shall be added.
+		 * @param index      The index at which the effect shall be added. If the index is greater than the size of the list of effect
+		 *                   then the effect will be added to the end.
+		 * @param effectName The name of the effect to add.
+		 * @param values     A map that gather parameter's name / parameter's value.
 		 */
-		protected abstract void setEffect(String name, IEffect effect);
+		protected abstract void addEffect(String name, int index, String effectName, Map<String, Object> values);
 
 		/**
-		 * Update parameters of an effect. The parameters defines how the effect modifies the audio stream.
+		 * Stops the effect associated to the given effectName. The effect will transition smoothly from applied to not applied. Once
+		 * stopped completely, the effect will be removed.
 		 * 
-		 * @param name   The name of the stream on which an effect shall be modified.
-		 * @param params An list of values of parameter.
+		 * @param name       The name of the audio stream for which an effect shall be removed.
+		 * @param effectName The name of the effect to remove.
 		 */
-		protected abstract void setEffectValues(String name, Object... params);
+		protected abstract void removeEffect(String name, String effectName);
+
+		/**
+		 * Update the parameters of an effect. The parameters defines how the effect modifies the audio stream.
+		 * 
+		 * @param name       The name of the audio stream on which an effect shall be modified.
+		 * @param effectName The name of the effect to update.
+		 * @param parameters The list of parameters to apply.
+		 */
+		/**
+		 * Update the parameters of an effect. The parameters defines how the effect modifies the audio stream. If a parameter name is not
+		 * supported, the value will be ignored. If the parameter's value has a wrong data type, the method throws an
+		 * IllegalArgumentException.
+		 * 
+		 * @param name       The name of the audio stream on which an effect shall be modified.
+		 * @param effectName The name of the effect to add.
+		 * @param values     A map that gather parameter's name / parameter's value.
+		 */
+		protected abstract void updateEffect(String name, String effectName, Map<String, Object> values);
 	}
 
 	private class NotInitializedState extends SoundApiManagerState {
@@ -249,12 +285,17 @@ public class SoundApiManager extends ClientElement {
 		}
 
 		@Override
-		protected void setEffect(String name, IEffect effect) {
+		protected void addEffect(String name, int index, String effectName, Map<String, Object> values) {
 			// Do nothing
 		}
 
 		@Override
-		protected void setEffectValues(String name, Object... params) {
+		protected void removeEffect(String name, String effectName) {
+			// Do nothing
+		}
+
+		@Override
+		protected void updateEffect(String name, String effectName, Map<String, Object> values) {
 			// Do nothing
 		}
 	}
@@ -335,13 +376,26 @@ public class SoundApiManager extends ClientElement {
 		}
 
 		@Override
-		protected void setEffect(String name, IEffect effect) {
-			soundApi.getMixer().setEffect(name, effect);
+		protected void addEffect(String name, int index, String effectName, Map<String, Object> values) {
+			IEffect effect = getClient().getConfig().createEffect(effectName, values);
+			if (effect == null)
+				return;
+
+			soundApi.getMixer().addEffect(name, index, effect);
 		}
 
 		@Override
-		protected void setEffectValues(String name, Object... params) {
-			soundApi.getMixer().setEffectValues(name, params);
+		protected void removeEffect(String name, String effectName) {
+			soundApi.getMixer().removeEffect(name, effectName);
+		}
+
+		@Override
+		protected void updateEffect(String name, String effectName, Map<String, Object> values) {
+			IEffectParametersHolder holder = getClient().getConfig().createHolder(effectName, values);
+			if (holder == null)
+				return;
+
+			soundApi.getMixer().updateEffect(name, holder);
 		}
 
 		/**
