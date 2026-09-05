@@ -4,6 +4,7 @@ import java.util.Map;
 
 import fr.pederobien.sound.interfaces.IEffect;
 import fr.pederobien.sound.interfaces.IEffectParametersHolder;
+import fr.pederobien.sound.interfaces.IFilter;
 import fr.pederobien.sound.interfaces.ISoundApi;
 
 public interface IVoxyClientConfig {
@@ -27,6 +28,11 @@ public interface IVoxyClientConfig {
 	 * @return The API to use to access the microphone and the speakers.
 	 */
 	ISoundApi getSoundApi();
+
+	/**
+	 * @return The filter to apply on the microphone's audio stream.
+	 */
+	IFilter getMicrophoneFilter();
 
 	/**
 	 * @return The voice activity detector to filter microphone's audio stream.

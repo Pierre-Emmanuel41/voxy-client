@@ -7,16 +7,13 @@ import java.util.function.Supplier;
 import javax.sound.sampled.AudioFormat;
 
 import fr.pederobien.communication.interfaces.IEthernetEndPoint;
-import fr.pederobien.sound.event.SoundApiInitializationErrorEvent;
-import fr.pederobien.sound.event.SoundApiInitializedEvent;
 import fr.pederobien.sound.impl.SoundApi;
 import fr.pederobien.sound.impl.effects.EchoEffect;
 import fr.pederobien.sound.impl.effects.NoEffect;
 import fr.pederobien.sound.interfaces.IEffect;
 import fr.pederobien.sound.interfaces.IEffectParametersHolder;
+import fr.pederobien.sound.interfaces.IFilter;
 import fr.pederobien.sound.interfaces.ISoundApi;
-import fr.pederobien.utils.event.EventManager;
-import fr.pederobien.utils.event.Logger;
 import fr.pederobien.voxy.client.impl.compressors.GZipCompression;
 import fr.pederobien.voxy.client.impl.compressors.NoCompression;
 import fr.pederobien.voxy.client.impl.compressors.OpusCompression;
@@ -33,6 +30,7 @@ public class VoxyClientConfig implements IVoxyClientConfig {
 	private final Map<Integer, Supplier<ISampleCompressor>> compressors;
 	private final Map<String, IEffectBuilder> builders;
 	private ISoundApi soundApi;
+	private IFilter filter;
 	private IVoiceActivityDetector vad;
 	private int algorithm;
 
@@ -93,19 +91,22 @@ public class VoxyClientConfig implements IVoxyClientConfig {
 	 * @param soundApi The sound API to use.
 	 */
 	public void setSoundApi(ISoundApi soundApi) {
-		if (this.soundApi.getMixer().isInitialized())
-			this.soundApi.dispose();
+		this.soundApi = soundApi;
+	}
 
-		try {
-			soundApi.initialize();
-			this.soundApi = soundApi;
+	@Override
+	public IFilter getMicrophoneFilter() {
+		return filter;
+	}
 
-			Logger.info("Sound API initialized successfully");
-			EventManager.callEvent(new SoundApiInitializedEvent(soundApi));
-		} catch (Exception e) {
-			Logger.error("An issue occurred while initializing sound API: %s", e.getMessage());
-			EventManager.callEvent(new SoundApiInitializationErrorEvent(e));
-		}
+	/**
+	 * Set the filter to apply on the microphone's audio stream. The given filter will be set for the microphone once the sound API is
+	 * initialized successfully.
+	 * 
+	 * @param filter The filter to apply on the microphone's audio stream.
+	 */
+	public void setMicrophoneFilter(IFilter filter) {
+		this.filter = filter;
 	}
 
 	@Override
