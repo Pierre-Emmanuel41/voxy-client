@@ -333,9 +333,16 @@ public class VoiceActivityDetector implements IVoiceActivityDetector {
 	}
 
 	private class WarmupOverState extends State {
+		private static final float TARGET_RMS = 1500.0f;
+		private static final float EMA_ALPHA = 0.05f;
+		private static final float MAX_GAIN = 4.0f;
+		private static final float MIN_GAIN = 0.25f;
+
 		private final int hangoverTime;
 		private long silenceStartTime;
 		private boolean isSpeechActive;
+		private float speechRmsEma;
+		private float currentGain;
 
 		/**
 		 * Creates a voice activity detector with computed thresholds.
@@ -345,6 +352,8 @@ public class VoiceActivityDetector implements IVoiceActivityDetector {
 
 			silenceStartTime = 0;
 			isSpeechActive = false;
+			speechRmsEma = 0;
+			currentGain = 1.0f;
 		}
 
 		@Override
@@ -381,9 +390,35 @@ public class VoiceActivityDetector implements IVoiceActivityDetector {
 			long now = System.currentTimeMillis();
 
 			if (isVoiceCandidate) {
+
 				// Voice detected: Reset timer and activate
 				silenceStartTime = 0;
 				isSpeechActive = true;
+
+				// Applying Automatic Gain control to avoid too high / too low volume
+
+				// Update the speech RMS estimate (equivalent to a low pass filter
+				speechRmsEma = (float) ((1 - EMA_ALPHA) * speechRmsEma + EMA_ALPHA * rms);
+
+				// Compute target gain
+				if (speechRmsEma > 10) { // guard against division by ~0
+					float desiredGain = TARGET_RMS / speechRmsEma;
+					desiredGain = Math.max(MIN_GAIN, Math.min(MAX_GAIN, desiredGain));
+
+					// Smooth the gain change to avoid pumping (fast attack, slow release)
+					float alpha = (float) ((desiredGain < currentGain) ? 0.3 : 0.05);
+					currentGain = (1 - alpha) * currentGain + alpha * desiredGain;
+				}
+
+				// Apply gain to each sample
+				for (int i = 0; i < samplesCount; i++) {
+					short sample = (short) ((buffer[2 * i + 1] & 0xFF) << 8 | (buffer[2 * i] & 0xFF));
+
+					// Clipping amplified value
+					short modified = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, sample * currentGain));
+					buffer[2 * i] = (byte) (modified & 0xFF);
+					buffer[2 * i + 1] = (byte) ((modified >> 8) & 0xFF);
+				}
 				return true;
 			} else {
 				// Silence detected
@@ -439,8 +474,6 @@ public class VoiceActivityDetector implements IVoiceActivityDetector {
 			silenceStartTime = 0;
 			isSpeechActive = false;
 
-			// If warmup became notInitialized, we shouldn't switch to warmup.
-			// The state switch already happened inside warmup.reset() if fullReset=true.
 			if (!fullReset && warmup != null)
 				current = warmup;
 		}
