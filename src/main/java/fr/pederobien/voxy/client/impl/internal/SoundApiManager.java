@@ -440,7 +440,6 @@ public class SoundApiManager extends ClientElement {
 		private void openMicrophone() {
 			debug("Opening microphone");
 			try {
-				getClient().getConfig().getVoiceActivityDetector().reset(false);
 				soundApi.getMicrophone().open();
 
 				fetcher = new Thread(this::fetch, "MicrophoneDataSender");
