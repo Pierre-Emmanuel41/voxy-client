@@ -66,7 +66,7 @@ public class PlayerListImpl extends ClientElement {
 	public VoxyPlayerImpl getByName(String name) {
 		synchronized (lock) {
 			for (VoxyPlayerImpl player : players)
-				if (player.getName().equals(name))
+				if (player.getName().equalsIgnoreCase(name))
 					return player;
 		}
 

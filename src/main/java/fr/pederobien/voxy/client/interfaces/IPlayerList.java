@@ -6,7 +6,7 @@ import java.util.Optional;
 public interface IPlayerList {
 
 	/**
-	 * Get the player associated to the given name.
+	 * Get the player associated to the given name, case ignored.
 	 * 
 	 * @param name The name of the player to return.
 	 * 
