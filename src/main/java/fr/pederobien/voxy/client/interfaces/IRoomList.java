@@ -23,9 +23,9 @@ public interface IRoomList {
 	void remove(String name);
 
 	/**
-	 * Finds the room associated to the given name.
+	 * Finds the room associated to the given name, case ignored.
 	 * 
-	 * @param name The room's name to find.
+	 * @param name The name of the room to return.
 	 * 
 	 * @return An optional containing the room with the given name if it exists, an empty optional otherwise.
 	 */

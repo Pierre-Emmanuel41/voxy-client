@@ -93,7 +93,7 @@ public class RoomListImpl extends ClientElement {
 	public VoxyRoomImpl getByName(String name) {
 		synchronized (lock) {
 			for (VoxyRoomImpl roomImpl : rooms)
-				if (roomImpl.getName().equals(name))
+				if (roomImpl.getName().equalsIgnoreCase(name))
 					return roomImpl;
 		}
 
