@@ -8,6 +8,11 @@ import fr.pederobien.sound.interfaces.IEffectParametersHolder;
 public interface IEffectBuilder {
 
 	/**
+	 * @return The name of the effect associated to this builder.
+	 */
+	String getEffectName();
+
+	/**
 	 * Creates a holder that contains the parameters of an effect.
 	 * 
 	 * @param values A map that gather parameter's name / parameter's value.

@@ -1,6 +1,8 @@
 package fr.pederobien.voxy.client.impl.config;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -8,8 +10,6 @@ import javax.sound.sampled.AudioFormat;
 
 import fr.pederobien.communication.interfaces.IEthernetEndPoint;
 import fr.pederobien.sound.impl.SoundApi;
-import fr.pederobien.sound.impl.effects.EchoEffect;
-import fr.pederobien.sound.impl.effects.NoEffect;
 import fr.pederobien.sound.interfaces.IEffect;
 import fr.pederobien.sound.interfaces.IEffectParametersHolder;
 import fr.pederobien.sound.interfaces.IFilter;
@@ -28,7 +28,7 @@ public class VoxyClientConfig implements IVoxyClientConfig {
 	private final VoxyTcpConfig tcpConfig;
 	private final VoxyUdpConfig udpConfig;
 	private final Map<Integer, Supplier<ISampleCompressor>> compressors;
-	private final Map<String, IEffectBuilder> builders;
+	private final List<IEffectBuilder> builders;
 	private ISoundApi soundApi;
 	private IFilter filter;
 	private IVoiceActivityDetector vad;
@@ -59,9 +59,10 @@ public class VoxyClientConfig implements IVoxyClientConfig {
 
 		algorithm = 0;
 
-		builders = new HashMap<String, IEffectBuilder>();
-		builders.put(NoEffect.NAME, new NoEffectBuilder());
-		builders.put(EchoEffect.NAME, new EchoEffectBuilder());
+		builders = new ArrayList<IEffectBuilder>();
+		registerEffectBuilder(new NoEffectBuilder());
+		registerEffectBuilder(new EchoEffectBuilder());
+		registerEffectBuilder(new HelmetEffectBuilder());
 	}
 
 	@Override
@@ -175,18 +176,18 @@ public class VoxyClientConfig implements IVoxyClientConfig {
 	 * @param builder The associated builder.
 	 * @return True if the supplier has been registered successfully, false if a builder is already registered for the given name.
 	 */
-	public boolean registerEffectBuilder(String name, IEffectBuilder builder) {
-		IEffectBuilder registered = builders.get(name);
+	public boolean registerEffectBuilder(IEffectBuilder builder) {
+		IEffectBuilder registered = getBuilder(name);
 		if (registered != null)
 			return false;
 
-		builders.put(name, builder);
+		builders.add(builder);
 		return true;
 	}
 
 	@Override
 	public IEffect createEffect(String name, Map<String, Object> values) {
-		IEffectBuilder builder = builders.get(name);
+		IEffectBuilder builder = getBuilder(name);
 		if (builder == null)
 			return null;
 
@@ -199,11 +200,25 @@ public class VoxyClientConfig implements IVoxyClientConfig {
 
 	@Override
 	public IEffectParametersHolder createHolder(String name, Map<String, Object> values) {
-		IEffectBuilder builder = builders.get(name);
+		IEffectBuilder builder = getBuilder(name);
 		if (builder == null)
 			return null;
 
 		IEffectParametersHolder holder = builder.createHolder(values);
 		return holder;
+	}
+
+	/**
+	 * Get the builder associated to the given name.
+	 * 
+	 * @param name The name of the effect.
+	 * @return The builder associated to the given name or null if not registered.
+	 */
+	private IEffectBuilder getBuilder(String name) {
+		for (IEffectBuilder builder : builders)
+			if (builder.getEffectName().equals(name))
+				return builder;
+
+		return null;
 	}
 }

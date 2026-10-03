@@ -10,6 +10,11 @@ import fr.pederobien.voxy.client.interfaces.IEffectBuilder;
 public class EchoEffectBuilder implements IEffectBuilder {
 
 	@Override
+	public String getEffectName() {
+		return EchoEffect.NAME;
+	}
+
+	@Override
 	public IEffectParametersHolder createHolder(Map<String, Object> values) {
 		IEffectParametersHolder holder = EchoEffect.holder();
 		holder.update(values);

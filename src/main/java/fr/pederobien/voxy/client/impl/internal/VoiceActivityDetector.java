@@ -333,10 +333,8 @@ public class VoiceActivityDetector implements IVoiceActivityDetector {
 	}
 
 	private class WarmupOverState extends State {
-		private static final float TARGET_RMS = 1500.0f;
+		private static final float TARGET_RMS = 1000.0f;
 		private static final float EMA_ALPHA = 0.05f;
-		private static final float MAX_GAIN = 4.0f;
-		private static final float MIN_GAIN = 0.25f;
 
 		private final int hangoverTime;
 		private long silenceStartTime;
@@ -403,7 +401,6 @@ public class VoiceActivityDetector implements IVoiceActivityDetector {
 				// Compute target gain
 				if (speechRmsEma > 10) { // guard against division by ~0
 					float desiredGain = TARGET_RMS / speechRmsEma;
-					desiredGain = Math.max(MIN_GAIN, Math.min(MAX_GAIN, desiredGain));
 
 					// Smooth the gain change to avoid pumping (fast attack, slow release)
 					float alpha = (float) ((desiredGain < currentGain) ? 0.3 : 0.05);

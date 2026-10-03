@@ -241,6 +241,7 @@ public class VocalClient implements IEventListener {
 		String effectName = request.getEffect().getName();
 		Map<String, Object> values = request.getEffect().getParametersMap();
 
+		Logger.info("[VocalClient] - Received ADD_EFFECT request, effectName=%s", effectName);
 		soundManager.addEffect(playerName, index, effectName, values);
 	}
 
