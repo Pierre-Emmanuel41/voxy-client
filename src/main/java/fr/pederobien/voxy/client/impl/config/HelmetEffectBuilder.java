@@ -25,7 +25,8 @@ public class HelmetEffectBuilder implements IEffectBuilder {
 	public IEffect createEffect(float sampleRate, IEffectParametersHolder holder) {
 		float frequency = (float) holder.getValue(HelmetEffect.FREQUENCY);
 		float qualityFactor = (float) holder.getValue(HelmetEffect.QUALITY_FACTOR);
-		return new HelmetEffect(sampleRate, frequency, qualityFactor);
+		float gain = (float) holder.getValue(HelmetEffect.GAIN);
+		return new HelmetEffect(sampleRate, frequency, qualityFactor, gain);
 	}
 
 }
