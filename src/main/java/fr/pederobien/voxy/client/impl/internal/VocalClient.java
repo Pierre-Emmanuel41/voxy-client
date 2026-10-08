@@ -32,6 +32,7 @@ import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamRemoveEffectRequ
 import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamUpdateEffectRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamVolumesRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerAudioStreamVolumesRequest.VolumeInfo;
+import fr.pederobien.voxy.common.impl.requests.PlayerPlaybackRequest;
 import fr.pederobien.voxy.common.impl.requests.PlayerPropertiesRequest;
 
 public class VocalClient implements IEventListener {
@@ -49,6 +50,7 @@ public class VocalClient implements IEventListener {
 	protected VocalClient(VoxyMainPlayerImpl player) {
 		this.player = player;
 		soundManager = new SoundApiManager(player.getClient());
+
 		EventManager.registerListener(this);
 	}
 
@@ -80,6 +82,7 @@ public class VocalClient implements IEventListener {
 
 		// Registering event handler
 		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_PROPERTIES, this::onPlayerProperties);
+		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_PLAYBACK, this::onPlayerPlayback);
 		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_CONTENT, this::onPlayerSpeak);
 		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_VOLUMES, this::onAudioVolumesChanged);
 		configuration.addRequestHandler(VoxyIdentifiers.PLAYER_AUDIO_STREAM_ADD_EFFECT, this::onAddEffect);
@@ -104,6 +107,7 @@ public class VocalClient implements IEventListener {
 		setMute(true);
 		setDeaf(true);
 		soundManager.resetVolumes();
+		soundManager.flush();
 		client.disconnect();
 	}
 
@@ -194,6 +198,21 @@ public class VocalClient implements IEventListener {
 	}
 
 	/**
+	 * Event handler: Method called when the playback status of a player has changed.
+	 *
+	 * @param connection The connection with the server.
+	 * @param messageID  The server's message identifier.
+	 * @param ignored    The payload that contains the name of the player and the playback status.
+	 */
+	private void onPlayerPlayback(IProtocolConnection connection, int messageID, Object payload) {
+		if (!(payload instanceof PlayerPlaybackRequest request) || !request.getName().equals(player.getName()))
+			return;
+
+		debug("Player's playback changed: isPlayback=%s", request.isPlayback());
+		soundManager.setPlayback(request.isPlayback());
+	}
+
+	/**
 	 * Event handler: Method called when the server notify this client that a player is speaking
 	 *
 	 * @param connection The connection with the server.
@@ -241,7 +260,6 @@ public class VocalClient implements IEventListener {
 		String effectName = request.getEffect().getName();
 		Map<String, Object> values = request.getEffect().getParametersMap();
 
-		Logger.info("[VocalClient] - Received ADD_EFFECT request, effectName=%s", effectName);
 		soundManager.addEffect(playerName, index, effectName, values);
 	}
 

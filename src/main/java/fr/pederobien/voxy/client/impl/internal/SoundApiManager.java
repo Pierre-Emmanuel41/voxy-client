@@ -64,6 +64,15 @@ public class SoundApiManager extends ClientElement {
 	}
 
 	/**
+	 * Set if the microphone output shall be played back.
+	 * 
+	 * @param isPlayback True if the microphone output shall be played back, false otherwise.
+	 */
+	public void setPlayback(boolean isPlayback) {
+		current.setPlayback(isPlayback);
+	}
+
+	/**
 	 * Enable or disable the microphone.
 	 * 
 	 * @param isMute True to disable the microphone, false to enable it.
@@ -109,6 +118,13 @@ public class SoundApiManager extends ClientElement {
 	 */
 	public void resetVolumes() {
 		current.resetVolumes();
+	}
+
+	/**
+	 * Clears each audio stream registered from other players but leave the streams list unmodified.
+	 */
+	public void flush() {
+		current.flush();
 	}
 
 	/**
@@ -164,6 +180,13 @@ public class SoundApiManager extends ClientElement {
 		protected abstract void dispose();
 
 		/**
+		 * Set if the microphone output shall be played back.
+		 * 
+		 * @param isPlayback True if the microphone output shall be played back, false otherwise.
+		 */
+		protected abstract void setPlayback(boolean isPlayback);
+
+		/**
 		 * Enable or disable the microphone.
 		 * 
 		 * @param isMute True to disable the microphone, false to enable it.
@@ -200,6 +223,11 @@ public class SoundApiManager extends ClientElement {
 		 * Set to 1.0 the left, right and global volumes of each registered stream.
 		 */
 		protected abstract void resetVolumes();
+
+		/**
+		 * Clears each audio stream registered from other players but leave the streams list unmodified.
+		 */
+		protected abstract void flush();
 
 		/**
 		 * Remove the decompressor associated to the given player.
@@ -255,6 +283,11 @@ public class SoundApiManager extends ClientElement {
 		}
 
 		@Override
+		protected void setPlayback(boolean isPlayback) {
+			// Do nothing
+		}
+
+		@Override
 		protected void setMute(boolean isMute) {
 			// Do nothing
 		}
@@ -276,6 +309,11 @@ public class SoundApiManager extends ClientElement {
 
 		@Override
 		protected void resetVolumes() {
+			// Do nothing
+		}
+
+		@Override
+		protected void flush() {
 			// Do nothing
 		}
 
@@ -326,6 +364,11 @@ public class SoundApiManager extends ClientElement {
 		}
 
 		@Override
+		protected void setPlayback(boolean isPlayback) {
+			soundApi.getMicrophone().setPlayback(isPlayback, getClient().getPlayer().getName());
+		}
+
+		@Override
 		protected void setMute(boolean isMute) {
 			if (this.isMute == isMute)
 				return;
@@ -368,6 +411,11 @@ public class SoundApiManager extends ClientElement {
 		@Override
 		protected void resetVolumes() {
 			soundApi.getMixer().resetVolumes();
+		}
+
+		@Override
+		protected void flush() {
+			soundApi.getMixer().flush();
 		}
 
 		@Override
