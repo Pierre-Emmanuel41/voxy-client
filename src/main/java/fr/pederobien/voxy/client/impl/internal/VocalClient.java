@@ -256,11 +256,10 @@ public class VocalClient implements IEventListener {
 			return;
 
 		String playerName = request.getPlayerName();
-		int index = request.getIndex();
 		String effectName = request.getEffect().getName();
 		Map<String, Object> values = request.getEffect().getParametersMap();
 
-		soundManager.addEffect(playerName, index, effectName, values);
+		soundManager.addEffect(playerName, effectName, values);
 	}
 
 	/**

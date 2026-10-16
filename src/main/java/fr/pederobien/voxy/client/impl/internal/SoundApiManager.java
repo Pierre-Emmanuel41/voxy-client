@@ -140,14 +140,12 @@ public class SoundApiManager extends ClientElement {
 	 * Adds an effect to apply on an audio stream.
 	 * 
 	 * @param name       The name of the stream on which an effect shall be added.
-	 * @param index      The index at which the effect shall be added. If the index is greater than the size of the list of effect
-	 *                   then the effect will be added to the end.
 	 * @param effectName The name of the effect to add.
 	 * @param values     A map that gather parameter's name / parameter's value.
 	 * 
 	 */
-	public void addEffect(String name, int index, String effectName, Map<String, Object> values) {
-		current.addEffect(name, index, effectName, values);
+	public void addEffect(String name, String effectName, Map<String, Object> values) {
+		current.addEffect(name, effectName, values);
 	}
 
 	/**
@@ -240,12 +238,10 @@ public class SoundApiManager extends ClientElement {
 		 * Adds an effect to apply on an audio stream.
 		 * 
 		 * @param name       The name of the stream on which an effect shall be added.
-		 * @param index      The index at which the effect shall be added. If the index is greater than the size of the list of effect
-		 *                   then the effect will be added to the end.
 		 * @param effectName The name of the effect to add.
 		 * @param values     A map that gather parameter's name / parameter's value.
 		 */
-		protected abstract void addEffect(String name, int index, String effectName, Map<String, Object> values);
+		protected abstract void addEffect(String name, String effectName, Map<String, Object> values);
 
 		/**
 		 * Stops the effect associated to the given effectName. The effect will transition smoothly from applied to not applied. Once
@@ -323,7 +319,7 @@ public class SoundApiManager extends ClientElement {
 		}
 
 		@Override
-		protected void addEffect(String name, int index, String effectName, Map<String, Object> values) {
+		protected void addEffect(String name, String effectName, Map<String, Object> values) {
 			// Do nothing
 		}
 
@@ -424,12 +420,12 @@ public class SoundApiManager extends ClientElement {
 		}
 
 		@Override
-		protected void addEffect(String name, int index, String effectName, Map<String, Object> values) {
+		protected void addEffect(String name, String effectName, Map<String, Object> values) {
 			IEffect effect = getClient().getConfig().createEffect(effectName, values);
 			if (effect == null)
 				return;
 
-			soundApi.getMixer().addEffect(name, index, effect);
+			soundApi.getMixer().addEffect(name, effect);
 		}
 
 		@Override
