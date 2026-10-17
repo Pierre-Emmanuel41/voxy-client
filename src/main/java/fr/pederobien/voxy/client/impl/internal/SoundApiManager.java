@@ -340,6 +340,7 @@ public class SoundApiManager extends ClientElement {
 		private boolean isMute;
 		private boolean isDeaf;
 		private Thread fetcher;
+		private boolean isPlayback;
 
 		/**
 		 * Creates a state corresponding to an initialized sound API.
@@ -361,7 +362,7 @@ public class SoundApiManager extends ClientElement {
 
 		@Override
 		protected void setPlayback(boolean isPlayback) {
-			soundApi.getMicrophone().setPlayback(isPlayback, getClient().getPlayer().getName());
+			this.isPlayback = isPlayback;
 		}
 
 		@Override
@@ -463,6 +464,9 @@ public class SoundApiManager extends ClientElement {
 					// Check if sample contains voice
 					if (!getClient().getConfig().getVoiceActivityDetector().checkVoiceActivity(sample))
 						continue;
+
+					if (isPlayback)
+						soundApi.getMixer().write(getClient().getPlayer().getName(), sample);
 
 					// Sample contains voice -> to be compressed
 					IVoxyMainPlayer player = getClient().getPlayer().getExternal();
